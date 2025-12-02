@@ -31,7 +31,12 @@ jobs:
       - name: Tests (pytest, se presenti)
         run: |
           if [ -d "tests" ]; then
-            pytest
+            if find tests -maxdepth 1 \( -name "test_*.py" -o -name "*_test.py" \) | grep -q . 2>/dev/null; then
+              echo "Trovati file di test, lancio pytest..."
+              pytest
+            else
+              echo "Cartella tests/ presente ma nessun file di test trovato, salto pytest."
+            fi
           else
             echo "Nessuna cartella tests/, salto pytest."
           fi
