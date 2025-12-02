@@ -17,8 +17,8 @@ import os
 import re
 import sys
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 
 # --- MIRRORS ---
 PI_SOURCES = [
@@ -46,6 +46,7 @@ SLEEP_BETWEEN = 2.0  # seconds
 
 try:
     import mpmath as mp
+
     MP_AVAIL = True
 except Exception:
     MP_AVAIL = False
@@ -60,7 +61,10 @@ def http_get(url: str) -> str:
                 return resp.read().decode("utf-8", errors="ignore")
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
             last_err = e
-            print(f"[warn] Tentativo {attempt}/{RETRIES} fallito su {url}: {e}", file=sys.stderr)
+            print(
+                f"[warn] Tentativo {attempt}/{RETRIES} fallito su {url}: {e}",
+                file=sys.stderr,
+            )
             if attempt < RETRIES:
                 time.sleep(SLEEP_BETWEEN)
     raise RuntimeError(f"Download fallito definitivamente: {url} ({last_err})")
@@ -87,12 +91,15 @@ def write_file(path: str, digits: str):
 
 def sha256_hex(s: str) -> str:
     import hashlib
+
     return hashlib.sha256(s.encode("ascii", errors="ignore")).hexdigest()
 
 
 def fallback_offline(constant_name: str, n: int) -> str:
     if not MP_AVAIL:
-        raise RuntimeError("Fallback offline richiesto ma mpmath non è installato (pip install mpmath).")
+        raise RuntimeError(
+            "Fallback offline richiesto ma mpmath non è installato (pip install mpmath)."
+        )
     mp.mp.dps = max(50, n + 10)
     if constant_name == "pi":
         s = mp.nstr(mp.pi, n + 2)  # es: "3.1415..."
@@ -103,7 +110,14 @@ def fallback_offline(constant_name: str, n: int) -> str:
     return extract_digits(s)
 
 
-def make_one(constant_name: str, sources: list[str], n: int, out_path: str, keep_integer: bool, offline: bool):
+def make_one(
+    constant_name: str,
+    sources: list[str],
+    n: int,
+    out_path: str,
+    keep_integer: bool,
+    offline: bool,
+):
     print(f"\n[{constant_name}] Target: {out_path} ({n} cifre)")
     data_digits = None
 
@@ -119,7 +133,10 @@ def make_one(constant_name: str, sources: list[str], n: int, out_path: str, keep
                     continue
                 cleaned = trim_leading_integer(all_digits, constant_name, keep_integer)
                 if len(cleaned) < n:
-                    print(f"[warn] {constant_name}: trovate {len(cleaned)} cifre utili (<{n}), continuo con altro mirror.", file=sys.stderr)
+                    print(
+                        f"[warn] {constant_name}: trovate {len(cleaned)} cifre utili (<{n}), continuo con altro mirror.",
+                        file=sys.stderr,
+                    )
                     continue
                 data_digits = cleaned[:n]
                 break
@@ -131,7 +148,9 @@ def make_one(constant_name: str, sources: list[str], n: int, out_path: str, keep
         all_digits = fallback_offline(constant_name, n)
         cleaned = trim_leading_integer(all_digits, constant_name, keep_integer)
         if len(cleaned) < n:
-            raise RuntimeError(f"{constant_name}: fallback offline ha prodotto solo {len(cleaned)} cifre utili.")
+            raise RuntimeError(
+                f"{constant_name}: fallback offline ha prodotto solo {len(cleaned)} cifre utili."
+            )
         data_digits = cleaned[:n]
 
     write_file(out_path, data_digits)
@@ -140,12 +159,27 @@ def make_one(constant_name: str, sources: list[str], n: int, out_path: str, keep
 
 
 def parse_args():
-    ap = argparse.ArgumentParser(description="Scarica e prepara dataset di cifre per π ed e (con mirrors e fallback offline).")
+    ap = argparse.ArgumentParser(
+        description="Scarica e prepara dataset di cifre per π ed e (con mirrors e fallback offline)."
+    )
     ap.add_argument("--n", type=int, default=100_000, help="Numero di cifre (default 100000).")
     ap.add_argument("--outdir", default=".", help="Directory di output (default .)")
-    ap.add_argument("--only", choices=["pi", "e", "both"], default="both", help="Quale costante produrre (default both).")
-    ap.add_argument("--keep-integer", action="store_true", help="Mantieni la cifra intera iniziale (es. '3' per π, '2' per e).")
-    ap.add_argument("--offline", action="store_true", help="Forza generazione offline con mpmath (non scarica).")
+    ap.add_argument(
+        "--only",
+        choices=["pi", "e", "both"],
+        default="both",
+        help="Quale costante produrre (default both).",
+    )
+    ap.add_argument(
+        "--keep-integer",
+        action="store_true",
+        help="Mantieni la cifra intera iniziale (es. '3' per π, '2' per e).",
+    )
+    ap.add_argument(
+        "--offline",
+        action="store_true",
+        help="Forza generazione offline con mpmath (non scarica).",
+    )
     return ap.parse_args()
 
 
@@ -154,8 +188,14 @@ def main():
     os.makedirs(args.outdir, exist_ok=True)
 
     targets = {
-        "pi": os.path.join(args.outdir, DEFAULT_TARGETS["pi"] if args.n == 100_000 else f"pi_{args.n}.txt"),
-        "e":  os.path.join(args.outdir, DEFAULT_TARGETS["e"]  if args.n == 100_000 else f"e_{args.n}.txt"),
+        "pi": os.path.join(
+            args.outdir,
+            DEFAULT_TARGETS["pi"] if args.n == 100_000 else f"pi_{args.n}.txt",
+        ),
+        "e": os.path.join(
+            args.outdir,
+            DEFAULT_TARGETS["e"] if args.n == 100_000 else f"e_{args.n}.txt",
+        ),
     }
 
     todo = []
@@ -175,7 +215,7 @@ def main():
         )
 
     print("\nFatto. Esempi di esecuzione con digit_probe:")
-    for name, _, outp in todo:
+    for _, _, outp in todo:
         print(f"  python3 digit_probe.py --file {outp}")
 
 

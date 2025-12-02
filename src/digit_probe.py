@@ -23,19 +23,17 @@ import argparse
 import collections
 import json
 import math
-import random
 import statistics
-import sys
 import zlib
-from typing import List, Tuple, Dict, Optional
-
+from typing import Dict, List, Optional, Tuple
 
 # ---------- Helpers I/O ----------
+
 
 def read_digits_file(path: str, n: Optional[int] = None) -> List[int]:
     with open(path, "r", encoding="utf8", errors="ignore") as f:
         data = f.read()
-    digits = [ord(c) - 48 for c in data if '0' <= c <= '9']
+    digits = [ord(c) - 48 for c in data if "0" <= c <= "9"]
     if n is not None:
         digits = digits[:n]
     return digits
@@ -66,6 +64,7 @@ def compress_ratio_bytes(b: bytes) -> float:
 
 
 # ---------- Statistiche base ----------
+
 
 def counts_and_chi_square(seq: List[int], M: int) -> Tuple[Dict[int, int], float, float]:
     """Ritorna: counts per simbolo, chi-square, expected per bin."""
@@ -140,7 +139,7 @@ def gaps_summary(seq: List[int], M: int) -> Dict[int, Tuple[int, float]]:
         if 0 <= x < M:
             if last[x] is not None:
                 gaps_count[x] += 1
-                gaps_sum[x] += (idx - last[x])
+                gaps_sum[x] += idx - last[x]
             last[x] = idx
     out = {}
     for i in range(M):
@@ -174,6 +173,7 @@ def autocorr_lags(seq: List[int], lags: List[int]) -> Dict[int, float]:
 
 # ---------- N-gram predictor (n=1..3) ----------
 
+
 def ngram_predictor_accuracy(seq: List[int], M: int, n: int, train_frac: float = 0.8) -> float:
     """Modello Markov n-gram (frequenze massime) con split 80/20; accuracy sul test."""
     N = len(seq)
@@ -197,7 +197,7 @@ def ngram_predictor_accuracy(seq: List[int], M: int, n: int, train_frac: float =
     # n>=2
     trans = {}  # key: tuple(context), val: Counter(next)
     for i in range(n, len(train)):
-        ctx = tuple(train[i - n:i])
+        ctx = tuple(train[i - n : i])
         nxt = train[i]
         c = trans.get(ctx)
         if c is None:
@@ -208,7 +208,7 @@ def ngram_predictor_accuracy(seq: List[int], M: int, n: int, train_frac: float =
     correct = 0
     total = 0
     for i in range(n, len(test)):
-        ctx = tuple(test[i - n:i])
+        ctx = tuple(test[i - n : i])
         nxt = test[i]
         # se contesto mai visto -> fallback a unigram su train
         if ctx not in trans:
@@ -225,6 +225,7 @@ def ngram_predictor_accuracy(seq: List[int], M: int, n: int, train_frac: float =
 
 # ---------- SchurProbe (pair-based, c = (i+j) mod R) ----------
 
+
 def schur_probe(seq: List[int], M: int, Rcap: int = 5000) -> Dict[str, float]:
     """
     Test additivo:
@@ -239,9 +240,12 @@ def schur_probe(seq: List[int], M: int, Rcap: int = 5000) -> Dict[str, float]:
     R = min(len(seq), Rcap)
     if R < 3 or M <= 0:
         return {
-            "triples": 0, "count": 0, "expected": 0.0,
-            "fraction": 0.0, "z": float("nan"),
-            "first_violation_index": None
+            "triples": 0,
+            "count": 0,
+            "expected": 0.0,
+            "fraction": 0.0,
+            "z": float("nan"),
+            "first_violation_index": None,
         }
 
     N_tr = R * (R - 1) // 2
@@ -271,14 +275,20 @@ def schur_probe(seq: List[int], M: int, Rcap: int = 5000) -> Dict[str, float]:
         "expected": expected,
         "fraction": frac,
         "z": z,
-        "first_violation_index": first_idx
+        "first_violation_index": first_idx,
     }
 
 
 # ---------- Modalità di analisi ----------
 
-def analyze_digits_mode(seq: List[int], Ncap: Optional[int], mc: Optional[int], schur_N: int,
-                        report_json_path: Optional[str]) -> None:
+
+def analyze_digits_mode(
+    seq: List[int],
+    Ncap: Optional[int],
+    mc: Optional[int],
+    schur_N: int,
+    report_json_path: Optional[str],
+) -> None:
     # trim
     if Ncap is not None and Ncap > 0:
         seq = seq[:Ncap]
@@ -310,7 +320,7 @@ def analyze_digits_mode(seq: List[int], Ncap: Optional[int], mc: Optional[int], 
     print("Gaps summary (count, mean gap):")
     for d in range(M):
         c, g = gaps[d]
-        mg = (f"{g:.2f}" if math.isfinite(g) else "inf")
+        mg = f"{g:.2f}" if math.isfinite(g) else "inf"
         print(f"  {d}: {c} gaps, mean {mg}")
     print()
 
@@ -328,7 +338,9 @@ def analyze_digits_mode(seq: List[int], Ncap: Optional[int], mc: Optional[int], 
     comp = compress_ratio_bytes(s)
     print(f"Compression ratio (zlib over text): {comp:.4f}")
     if comp <= 0.44:
-        print("  --> sotto ~0.44; può indicare ripetizioni o testo breve (limite teorico ~0.415 per alfabeto 10).")
+        print(
+            "  --> sotto ~0.44; può indicare ripetizioni o testo breve (limite teorico ~0.415 per alfabeto 10)."
+        )
     else:
         print("  --> compatibile con sequenze random-like su alfabeto 10.")
     print()
@@ -361,8 +373,13 @@ def analyze_digits_mode(seq: List[int], Ncap: Optional[int], mc: Optional[int], 
             "counts": counts,
             "zscores": {int(k): float(v) for k, v in zs.items()},
             "runs": {"Z": float(Z), "p_two_tailed": float(p) if p == p else None},
-            "gaps": {int(k): {"count": int(v[0]), "mean": (float(v[1]) if math.isfinite(v[1]) else None)}
-                     for k, v in gaps.items()},
+            "gaps": {
+                int(k): {
+                    "count": int(v[0]),
+                    "mean": (float(v[1]) if math.isfinite(v[1]) else None),
+                }
+                for k, v in gaps.items()
+            },
             "autocorr": {int(k): float(v) for k, v in ac.items()},
             "compress_ratio": comp,
             "ngram": {int(k): float(v) for k, v in best_acc.items()},
@@ -372,8 +389,11 @@ def analyze_digits_mode(seq: List[int], Ncap: Optional[int], mc: Optional[int], 
                 "expected": float(sch["expected"]),
                 "fraction": float(sch["fraction"]),
                 "z": float(sch["z"]),
-                "first_violation_index": (int(sch["first_violation_index"])
-                                          if sch["first_violation_index"] is not None else None)
+                "first_violation_index": (
+                    int(sch["first_violation_index"])
+                    if sch["first_violation_index"] is not None
+                    else None
+                ),
             },
         }
         with open(report_json_path, "w", encoding="utf8") as f:
@@ -381,8 +401,13 @@ def analyze_digits_mode(seq: List[int], Ncap: Optional[int], mc: Optional[int], 
         print(f"[report-json] scritto: {report_json_path}")
 
 
-def analyze_integers_mode(seq: List[int], alphabet: int, Ncap: Optional[int],
-                          schur_N: int, report_json_path: Optional[str]) -> None:
+def analyze_integers_mode(
+    seq: List[int],
+    alphabet: int,
+    Ncap: Optional[int],
+    schur_N: int,
+    report_json_path: Optional[str],
+) -> None:
     if Ncap is not None and Ncap > 0:
         seq = seq[:Ncap]
     N = len(seq)
@@ -410,7 +435,7 @@ def analyze_integers_mode(seq: List[int], alphabet: int, Ncap: Optional[int],
     print("Gaps summary (top-5 symbols by freq):")
     for sym, _ in top5:
         c, g = gaps[sym]
-        mg = (f"{g:.2f}" if math.isfinite(g) else "inf")
+        mg = f"{g:.2f}" if math.isfinite(g) else "inf"
         print(f"  {sym}: {c} gaps, mean {mg}")
     print()
 
@@ -443,8 +468,10 @@ def analyze_integers_mode(seq: List[int], alphabet: int, Ncap: Optional[int],
     sch = schur_probe(seq_mod, M, Rcap=schur_N)
     if sch["first_violation_index"] is not None:
         print(f"  first violation at index {sch['first_violation_index']}")
-    print(f"  triples={sch['triples']:,}  count={sch['count']}  expected≈{sch['expected']:.0f}  "
-          f"frac={sch['fraction']:.6f}  z={sch['z']:+.2f}\n")
+    print(
+        f"  triples={sch['triples']:,}  count={sch['count']}  expected≈{sch['expected']:.0f}  "
+        f"frac={sch['fraction']:.6f}  z={sch['z']:+.2f}\n"
+    )
 
     # JSON report
     if report_json_path:
@@ -456,9 +483,13 @@ def analyze_integers_mode(seq: List[int], alphabet: int, Ncap: Optional[int],
             "expected_per_bin": expected,
             "counts": counts,
             "runs": {"Z": float(Z), "p_two_tailed": float(p) if p == p else None},
-            "gaps_top5": {int(sym): {"count": int(gaps[sym][0]),
-                                     "mean": (float(gaps[sym][1]) if math.isfinite(gaps[sym][1]) else None)}
-                          for sym, _ in top5},
+            "gaps_top5": {
+                int(sym): {
+                    "count": int(gaps[sym][0]),
+                    "mean": (float(gaps[sym][1]) if math.isfinite(gaps[sym][1]) else None),
+                }
+                for sym, _ in top5
+            },
             "autocorr": {int(k): float(v) for k, v in ac.items()},
             "compress_ratio": comp,
             "ngram": {int(k): float(v) for k, v in best_acc.items()},
@@ -468,8 +499,11 @@ def analyze_integers_mode(seq: List[int], alphabet: int, Ncap: Optional[int],
                 "expected": float(sch["expected"]),
                 "fraction": float(sch["fraction"]),
                 "z": float(sch["z"]),
-                "first_violation_index": (int(sch["first_violation_index"])
-                                          if sch["first_violation_index"] is not None else None)
+                "first_violation_index": (
+                    int(sch["first_violation_index"])
+                    if sch["first_violation_index"] is not None
+                    else None
+                ),
             },
         }
         with open(report_json_path, "w", encoding="utf8") as f:
@@ -479,19 +513,48 @@ def analyze_integers_mode(seq: List[int], alphabet: int, Ncap: Optional[int],
 
 # ---------- main ----------
 
+
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="digit-probe: analisi di sequenze di cifre/interi")
-    ap.add_argument("--file", required=True, help="Input file: digits (senza spazi) o integers (uno per riga)")
+    ap.add_argument(
+        "--file",
+        required=True,
+        help="Input file: digits (senza spazi) o integers (uno per riga)",
+    )
     ap.add_argument("--n", type=int, default=None, help="Limita la lunghezza analizzata")
-    ap.add_argument("--integers", action="store_true", help="Abilita modalità interi (uno per riga).")
-    ap.add_argument("--alphabet", type=int, default=None,
-                    help="Alfabeto per modalità integers (obbligatorio se --integers).")
-    ap.add_argument("--report-json", type=str, default=None, help="Scrive un report JSON compatibile con compare_reports.py")
+    ap.add_argument(
+        "--integers",
+        action="store_true",
+        help="Abilita modalità interi (uno per riga).",
+    )
+    ap.add_argument(
+        "--alphabet",
+        type=int,
+        default=None,
+        help="Alfabeto per modalità integers (obbligatorio se --integers).",
+    )
+    ap.add_argument(
+        "--report-json",
+        type=str,
+        default=None,
+        help="Scrive un report JSON compatibile con compare_reports.py",
+    )
     # opzioni legacy / placeholder
-    ap.add_argument("--mc", type=int, default=None, help="(opzionale) Monte Carlo reps baseline (non obbligatorio)")
-    ap.add_argument("--schur-N", dest="schur_N", type=int, default=5000,
-                    help="R massimo per SchurProbe (default: 5000)")
+    ap.add_argument(
+        "--mc",
+        type=int,
+        default=None,
+        help="(opzionale) Monte Carlo reps baseline (non obbligatorio)",
+    )
+    ap.add_argument(
+        "--schur-N",
+        dest="schur_N",
+        type=int,
+        default=5000,
+        help="R massimo per SchurProbe (default: 5000)",
+    )
     return ap.parse_args()
+
 
 def main() -> None:
     a = parse_args()
@@ -504,6 +567,7 @@ def main() -> None:
     else:
         seq = read_digits_file(a.file, a.n)
         analyze_digits_mode(seq, a.n, a.mc, a.schur_N, a.report_json)
+
 
 if __name__ == "__main__":
     main()
