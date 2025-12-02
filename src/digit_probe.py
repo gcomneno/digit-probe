@@ -1,440 +1,509 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-digit_probe.py (v3.0 — digits + integers/bucket)
-Analisi statistica di sequenze:
-- Modalità 'digits' (default): legge solo cifre 0..9 dal file.
-- Modalità 'integers' (--integers): legge interi non negativi (p.es. bucket 0..2^k-1).
+digit_probe.py
+Analizzatore statistico/strutturale per sequenze numeriche:
+- Modalità "digits": file di sole cifre 0..9 (senza spazi/newline)
+- Modalità "integers": file di interi (uno per riga), alfabeto dichiarato via --alphabet
 
-Metriche: chi², z-scores (solo digits), runs (pari/dispari), gaps, autocorr, compress ratio,
-N-gram (80/20 split), SchurProbe (A+B=C con simboli uguali), Monte Carlo opzionale, JSON export.
+Metriche:
+- Distribuzione, chi-square, z-score per simbolo
+- Runs test (pari/dispari)
+- Gaps per simbolo (conteggio e gap medio)
+- Autocorrelazione (lag 1..5)
+- Compression ratio (zlib)
+- N-gram predictor (n = 1..3) con split 80/20
+- SchurProbe: test a coppie (i<j) con c = (i+j) mod R e verifica (a+b) ≡ seq[c] (mod M)
+  * N_triples = C(R,2) → atteso = N_triples / M ; var = N p (1-p); z-score standard
 
-Esempi:
-  # DIGITS (π)
-  python3 digit_probe.py --file pi_100k.txt --report-json pi.json
-
-  # INTEGERS (bucket Turbo-B, k=8 ⇒ M=256)
-  python3 digit_probe.py --file buckets.txt --integers --alphabet 256 --report-json buckets.json
-
-  # Monte Carlo baseline
-  python3 digit_probe.py --file buckets.txt --integers --alphabet 256 --mc 100
+Output: stampa leggibile + opzionale JSON con --report-json (compatibile con compare_reports.py)
 """
 
-from __future__ import annotations
-import argparse, collections, math, os, sys, zlib, random, json
-from typing import List, Dict, Any, Sequence, Tuple, Optional
+import argparse
+import collections
+import json
+import math
+import random
+import statistics
+import sys
+import zlib
+from typing import List, Tuple, Dict, Optional
 
-# Optional dependency: mpmath (solo per --source digits)
-try:
-    import mpmath as mp
-    MP_AVAIL = True
-except Exception:
-    MP_AVAIL = False
 
-DIGITS = tuple(str(i) for i in range(10))
+# ---------- Helpers I/O ----------
 
-# ---------- I/O ----------
-def load_digits_from_file(path: str, n: int | None = None) -> str:
-    s = []
-    with open(path, 'r', encoding='utf8') as fh:
-        for line in fh:
-            for ch in line:
-                if ch.isdigit():
-                    s.append(ch)
-                if n and len(s) >= n:
-                    break
-            if n and len(s) >= n:
+def read_digits_file(path: str, n: Optional[int] = None) -> List[int]:
+    with open(path, "r", encoding="utf8", errors="ignore") as f:
+        data = f.read()
+    digits = [ord(c) - 48 for c in data if '0' <= c <= '9']
+    if n is not None:
+        digits = digits[:n]
+    return digits
+
+
+def read_integers_file(path: str, n: Optional[int] = None) -> List[int]:
+    out = []
+    with open(path, "r", encoding="utf8", errors="ignore") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                v = int(line)
+            except Exception:
+                continue
+            out.append(v)
+            if n is not None and len(out) >= n:
                 break
-    return ''.join(s) if n is None else ''.join(s[:n])
+    return out
 
-def load_integers_from_file(path: str, n: int | None = None) -> List[int]:
-    txt = open(path, 'r', encoding='utf8').read()
-    vals: List[int] = []
-    cur = ""
-    for ch in txt:
-        if ch.isdigit():
-            cur += ch
-        else:
-            if cur:
-                vals.append(int(cur))
-                if n and len(vals) >= n:
-                    return vals
-                cur = ""
-    if cur:
-        vals.append(int(cur))
-    return vals if (n is None) else vals[:n]
 
-def generate_constant_digits(kind: str, n: int) -> str:
-    if not MP_AVAIL:
-        raise RuntimeError("mpmath non disponibile: pip install mpmath")
-    import mpmath as mp  # local import safe
-    mp.mp.dps = max(50, n + 10)
-    if kind == 'pi': s = mp.nstr(mp.pi, n + 2)
-    elif kind in ('e', 'exp'): s = mp.nstr(mp.e, n + 2)
-    else: raise ValueError("Costante sconosciuta: " + kind)
-    digits = [ch for ch in s if ch.isdigit()]
-    return ''.join(digits[:n])
+def compress_ratio_bytes(b: bytes) -> float:
+    if not b:
+        return float("nan")
+    comp = zlib.compress(b, level=6)
+    return len(comp) / float(len(b))
 
-# ---------- STAT BASE ----------
-def digit_counts_str(seq: str) -> Dict[str, int]:
-    c = collections.Counter(seq)
-    return {d: c.get(d, 0) for d in DIGITS}
 
-def counts_over_alphabet_int(seq: Sequence[int], M: int) -> List[int]:
-    counts = [0]*M
-    for v in seq:
-        if 0 <= v < M:
-            counts[v] += 1
-    return counts
+# ---------- Statistiche base ----------
 
-def chi_square_from_counts(counts: Sequence[int], expected: float) -> float:
-    return sum((c-expected)**2/expected for c in counts)
-
-def z_scores_digits(obs: Dict[str,int]) -> Dict[str,float]:
-    N, p = sum(obs.values()), 0.1
-    var = N*p*(1-p)
-    σ = math.sqrt(var) if var>0 else float('nan')
-    return {d: ((obs[d]-N*p)/σ if σ>0 else float('nan')) for d in DIGITS}
-
-# ---------- RUNS TEST ----------
-def runs_test_binary(binary_seq: List[int]) -> tuple[float,float]:
-    n = len(binary_seq)
-    n1 = sum(binary_seq); n2 = n - n1
-    if n1==0 or n2==0 or n<20: return float('nan'), float('nan')
-    runs = 1 + sum(binary_seq[i]!=binary_seq[i-1] for i in range(1,n))
-    exp_r = 1 + 2*n1*n2/n
-    var_r = (2*n1*n2*(2*n1*n2 - n))/(n**2*(n-1))
-    if var_r <= 0: return float('nan'), float('nan')
-    z = (runs-exp_r)/math.sqrt(var_r)
-    p = 2*(1-0.5*(1+math.erf(abs(z)/math.sqrt(2))))
-    return z,p
-
-# ---------- AUTOCORR ----------
-def autocorrelation(vals: Sequence[float], lag: int=1)->float:
-    n=len(vals)
-    if n<=lag: return float('nan')
-    mean=sum(vals)/n
-    num=sum((vals[i]-mean)*(vals[i+lag]-mean) for i in range(n-lag))
-    den=sum((x-mean)**2 for x in vals)
-    return num/den if den else float('nan')
-
-# ---------- COMPRESS ----------
-def compressibility_ratio_bytes(b: bytes)->float:
-    if not b: return 1.0
-    c = zlib.compress(b)
-    return len(c)/len(b)
-
-def compress_ratio_for_digits(seq_digits_text: str)->float:
-    return compressibility_ratio_bytes(seq_digits_text.encode('ascii',errors='ignore'))
-
-def compress_ratio_for_integers(seq_ints: Sequence[int])->float:
-    # rappresentazione testuale "num num ..." per coerenza con input tipico
-    s = " ".join(map(str, seq_ints)).encode('ascii', errors='ignore')
-    return compressibility_ratio_bytes(s)
-
-# ---------- N-GRAM (generico) ----------
-class NGramPredictor:
-    """
-    N-gram su sequenze GENERICHE (hashable).
-    Usa tuple di lunghezza n come contesto.
-    """
-    def __init__(self, n:int=2):
-        assert n>=1
-        self.n=n
-        self.ctx: Dict[Tuple[Any,...], collections.Counter] = {}
-        self.global_next = collections.Counter()
-
-    def train(self, seq: Sequence[Any]):
-        if len(seq)<=self.n: return
-        for i in range(len(seq)-self.n):
-            ctx = tuple(seq[i:i+self.n])
-            nxt = seq[i+self.n]
-            self.ctx.setdefault(ctx, collections.Counter())[nxt]+=1
-            self.global_next[nxt]+=1
-
-    def predict(self, ctx: Tuple[Any,...]) -> Any:
-        c = self.ctx.get(ctx)
-        if c and len(c)>0: return c.most_common(1)[0][0]
-        if self.global_next: return self.global_next.most_common(1)[0][0]
-        return None
-
-    def accuracy_on(self, seq: Sequence[Any]) -> float:
-        if len(seq)<=self.n: return float('nan')
-        correct=0; total=0
-        for i in range(len(seq)-self.n):
-            ctx = tuple(seq[i:i+self.n])
-            truth = seq[i+self.n]
-            pred = self.predict(ctx)
-            if pred == truth: correct += 1
-            total += 1
-        return correct/total if total>0 else float('nan')
-
-# ---------- Monte Carlo ----------
-def mc_random_digits(length:int, reps:int)->Dict[str,float]:
-    rng = random.Random(1234567)
-    chi_sum=0.0; comp_sum=0.0
-    for _ in range(reps):
-        seq = ''.join(rng.choice(DIGITS) for _ in range(length))
-        counts = digit_counts_str(seq)
-        chi_sum += chi_square_from_counts(counts.values(), length/10.0)
-        comp_sum += compress_ratio_for_digits(seq)
-    return {'chi_mean': chi_sum/reps, 'comp_mean': comp_sum/reps}
-
-def mc_random_integers(length:int, M:int, reps:int)->Dict[str,float]:
-    rng = random.Random(1234567)
-    chi_sum=0.0; comp_sum=0.0
-    for _ in range(reps):
-        seq = [rng.randrange(M) for __ in range(length)]
-        counts = counts_over_alphabet_int(seq, M)
-        chi_sum += chi_square_from_counts(counts, length/M)
-        comp_sum += compress_ratio_for_integers(seq)
-    return {'chi_mean': chi_sum/reps, 'comp_mean': comp_sum/reps}
-
-# ---------- Schur Probe ----------
-def schur_probe_count_symbols(seq: Sequence[Any], max_n:int) -> tuple[int|None, int, int]:
-    """
-    Conta triple (i,j,k) con i+j=k < N_eff e seq[i]==seq[j]==seq[k].
-    Restituisce (first_violation, total_count, N_eff).
-    """
-    n = min(len(seq), max_n)
-    first=None; tot=0
-    for i in range(1,n):
-        si = seq[i]
-        for j in range(1,n):
-            k = i+j
-            if k>=n: break
-            if si == seq[j] == seq[k]:
-                tot += 1
-                if first is None:
-                    first = k
-    return first, tot, n
-
-def schur_expected_from_empirical_counts(counts: Sequence[int], N: int) -> tuple[float, float]:
-    """
-    atteso = (#triples) * sum_d (p_d^3), con p_d = c_d/N
-    """
-    if N<=0: return 0.0, 0.0
-    p_equal = 0.0
-    for c in counts:
-        p = c/N
-        p_equal += p*p*p
-    total_triples = (N-1)*N//2
-    return total_triples*p_equal, p_equal
-
-# ---------- ANALYSIS ----------
-def analyze_digits_mode(seq_digits_text: str, limit_n:int|None, mc:int, schur_N:int, json_path:str|None):
-    # cleanup + cutting
-    seq = ''.join(ch for ch in seq_digits_text if ch.isdigit())
-    if limit_n: seq = seq[:limit_n]
+def counts_and_chi_square(seq: List[int], M: int) -> Tuple[Dict[int, int], float, float]:
+    """Ritorna: counts per simbolo, chi-square, expected per bin."""
+    cnt = {i: 0 for i in range(M)}
+    for x in seq:
+        if 0 <= x < M:
+            cnt[x] += 1
     N = len(seq)
-    if N==0: print("No digits loaded."); return
+    if M == 0 or N == 0:
+        return cnt, float("nan"), float("nan")
+    expected = N / float(M)
+    chi2 = 0.0
+    for i in range(M):
+        dev = cnt[i] - expected
+        chi2 += (dev * dev) / (expected if expected > 0 else 1.0)
+    return cnt, chi2, expected
+
+
+def zscores_per_symbol(counts: Dict[int, int], expected: float) -> Dict[int, float]:
+    """Z = (obs - E)/sqrt(E) per ciascun simbolo; se E==0 -> 0."""
+    z = {}
+    if expected <= 0:
+        for k in counts:
+            z[k] = 0.0
+        return z
+    s = math.sqrt(expected)
+    for k, v in counts.items():
+        z[k] = (v - expected) / s
+    return z
+
+
+def runs_test_even_odd(seq: List[int]) -> Tuple[float, float]:
+    """Runs test su parità (even/odd). Ritorna Z e p(two-tailed) approx (normale)."""
+    N = len(seq)
+    if N < 2:
+        return float("nan"), float("nan")
+    # Classi: even(0), odd(1)
+    classes = [x & 1 for x in seq]
+    n0 = sum(1 for c in classes if c == 0)
+    n1 = N - n0
+    if n0 == 0 or n1 == 0:
+        return float("nan"), float("nan")
+
+    R = 1
+    for i in range(1, N):
+        if classes[i] != classes[i - 1]:
+            R += 1
+
+    mu = 1 + (2 * n0 * n1) / N
+    var = (2 * n0 * n1 * (2 * n0 * n1 - N)) / (N * N * (N - 1)) if N > 1 else 0.0
+    sigma = math.sqrt(var) if var > 0 else 0.0
+    Z = (R - mu) / sigma if sigma > 0 else 0.0
+    # Approssimiamo p con normale standard (due code)
+    try:
+        # senza scipy: uso erfc
+        p_two = math.erfc(abs(Z) / math.sqrt(2.0))
+    except Exception:
+        p_two = float("nan")
+    return Z, p_two
+
+
+def top_k_by_freq(counts: Dict[int, int], k: int = 5) -> List[Tuple[int, int]]:
+    return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:k]
+
+
+def gaps_summary(seq: List[int], M: int) -> Dict[int, Tuple[int, float]]:
+    """Per ogni simbolo, calcola (#gap, gap medio)."""
+    last = {i: None for i in range(M)}
+    gaps_count = {i: 0 for i in range(M)}
+    gaps_sum = {i: 0 for i in range(M)}
+    for idx, x in enumerate(seq):
+        if 0 <= x < M:
+            if last[x] is not None:
+                gaps_count[x] += 1
+                gaps_sum[x] += (idx - last[x])
+            last[x] = idx
+    out = {}
+    for i in range(M):
+        c = gaps_count[i]
+        mean_gap = (gaps_sum[i] / c) if c > 0 else float("inf")
+        out[i] = (c, mean_gap)
+    return out
+
+
+def autocorr_lags(seq: List[int], lags: List[int]) -> Dict[int, float]:
+    """Autocorrelazione di Pearson per lag in lags; seq come interi."""
+    N = len(seq)
+    if N < 2:
+        return {lag: float("nan") for lag in lags}
+    mu = statistics.mean(seq)
+    # varianza (uso denominatore N)
+    denom = sum((x - mu) * (x - mu) for x in seq)
+    if denom == 0:
+        return {lag: 0.0 for lag in lags}
+    out = {}
+    for L in lags:
+        if L <= 0 or L >= N:
+            out[L] = float("nan")
+            continue
+        num = 0.0
+        for i in range(N - L):
+            num += (seq[i] - mu) * (seq[i + L] - mu)
+        out[L] = num / denom
+    return out
+
+
+# ---------- N-gram predictor (n=1..3) ----------
+
+def ngram_predictor_accuracy(seq: List[int], M: int, n: int, train_frac: float = 0.8) -> float:
+    """Modello Markov n-gram (frequenze massime) con split 80/20; accuracy sul test."""
+    N = len(seq)
+    if N < 4:
+        return float("nan")
+    trainN = int(N * train_frac)
+    if trainN < n + 1:
+        trainN = min(N - 1, max(n + 1, int(N * 0.7)))
+    train = seq[:trainN]
+    test = seq[trainN:]
+
+    if n == 1:
+        # modello unigram: predice il simbolo più frequente nel train
+        cnt = collections.Counter(train)
+        if not cnt:
+            return float("nan")
+        top = cnt.most_common(1)[0][0]
+        correct = sum(1 for x in test if x == top)
+        return correct / len(test) if test else float("nan")
+
+    # n>=2
+    trans = {}  # key: tuple(context), val: Counter(next)
+    for i in range(n, len(train)):
+        ctx = tuple(train[i - n:i])
+        nxt = train[i]
+        c = trans.get(ctx)
+        if c is None:
+            c = collections.Counter()
+            trans[ctx] = c
+        c[nxt] += 1
+
+    correct = 0
+    total = 0
+    for i in range(n, len(test)):
+        ctx = tuple(test[i - n:i])
+        nxt = test[i]
+        # se contesto mai visto -> fallback a unigram su train
+        if ctx not in trans:
+            # fallback
+            # predici il simbolo più frequente del train
+            # (già calcolato per n=1, ma ricalcolo semplice)
+            top = collections.Counter(train).most_common(1)[0][0]
+        else:
+            top = trans[ctx].most_common(1)[0][0]
+        correct += 1 if top == nxt else 0
+        total += 1
+    return (correct / total) if total > 0 else float("nan")
+
+
+# ---------- SchurProbe (pair-based, c = (i+j) mod R) ----------
+
+def schur_probe(seq: List[int], M: int, Rcap: int = 5000) -> Dict[str, float]:
+    """
+    Test additivo:
+      - Prendiamo R = min(len(seq), Rcap)
+      - Per ogni coppia i<j (N_triples = C(R,2)), definiamo k = (i+j) % R
+      - Verifica: (seq[i] + seq[j]) % M == seq[k]
+      - Atteso (iid uniforme): p = 1/M; E = N*p; Var = N p (1-p); z = (count - E)/sqrt(Var)
+
+    Ritorna dict con chiavi:
+      - triples, count, expected, fraction, z, first_violation_index
+    """
+    R = min(len(seq), Rcap)
+    if R < 3 or M <= 0:
+        return {
+            "triples": 0, "count": 0, "expected": 0.0,
+            "fraction": 0.0, "z": float("nan"),
+            "first_violation_index": None
+        }
+
+    N_tr = R * (R - 1) // 2
+    p = 1.0 / float(M)
+    expected = N_tr * p
+    var = expected * (1.0 - p)  # binomiale
+    sigma = math.sqrt(var) if var > 0 else 0.0
+
+    count = 0
+    first_idx = None  # memorizza j (o indice lineare) del primo "match"
+    # Itera coppie
+    # Per evitare di fare modulo ad ogni passo, è ok mantenerlo semplice
+    for i in range(R - 1):
+        ai = seq[i]
+        for j in range(i + 1, R):
+            k = (i + j) % R
+            if ((ai + seq[j]) % M) == (seq[k] % M):
+                count += 1
+                if first_idx is None:
+                    first_idx = j
+
+    z = (count - expected) / sigma if sigma > 0 else 0.0
+    frac = count / float(N_tr) if N_tr > 0 else 0.0
+    return {
+        "triples": N_tr,
+        "count": count,
+        "expected": expected,
+        "fraction": frac,
+        "z": z,
+        "first_violation_index": first_idx
+    }
+
+
+# ---------- Modalità di analisi ----------
+
+def analyze_digits_mode(seq: List[int], Ncap: Optional[int], mc: Optional[int], schur_N: int,
+                        report_json_path: Optional[str]) -> None:
+    # trim
+    if Ncap is not None and Ncap > 0:
+        seq = seq[:Ncap]
+    N = len(seq)
+    M = 10
 
     print(f"MODE: digits  |  TOTAL DIGITS: {N}")
-    obs = digit_counts_str(seq)
-    [print(f"  {d}: {obs[d]}") for d in DIGITS]
 
-    exp = N/10.0
-    chi = chi_square_from_counts(obs.values(), exp)
-    print(f"\nChi-square (10 bins): {chi:.4f} (expected per bin={exp:.2f})")
+    # Distribuzione + chi2
+    counts, chi2, expected = counts_and_chi_square(seq, M)
+    for d in range(M):
+        print(f"  {d}: {counts.get(d,0)}")
+    print(f"\nChi-square (10 bins): {chi2:.4f} (expected per bin={expected:.2f})\n")
 
-    zs = z_scores_digits(obs)
-    print("\nZ-scores per digit:")
-    for d in DIGITS:
-        print(f"  {d}: {zs[d]:+.3f}")
+    # Z-scores simbolo
+    zs = zscores_per_symbol(counts, expected if expected == expected else 0.0)
+    print("Z-scores per digit:")
+    for d in range(M):
+        sign = "+" if zs[d] >= 0 else ""
+        print(f"  {d}: {sign}{zs[d]:.3f}")
+    print()
 
-    # runs on even/odd
-    bin_seq = [1 if (int(ch)%2==0) else 0 for ch in seq]
-    z_run, p_run = runs_test_binary(bin_seq)
-    print(f"\nRuns test (even/odd): Z={z_run:.3f}, p={p_run:.3f}")
+    # Runs test (even/odd)
+    Z, p = runs_test_even_odd(seq)
+    print(f"Runs test (even/odd): Z={Z:.3f}, p={p if p==p else float('nan'):.3f}\n")
 
-    # gaps
-    print("\nGaps summary (count, mean gap):")
-    for d in DIGITS:
-        idxs = [i for i,ch in enumerate(seq) if ch==d]
-        if len(idxs)<=1: print(f"  {d}: <2 occurrences>")
-        else:
-            gaps = [idxs[i+1]-idxs[i] for i in range(len(idxs)-1)]
-            print(f"  {d}: {len(gaps)} gaps, mean {sum(gaps)/len(gaps):.2f}")
+    # Gaps
+    gaps = gaps_summary(seq, M)
+    print("Gaps summary (count, mean gap):")
+    for d in range(M):
+        c, g = gaps[d]
+        mg = (f"{g:.2f}" if math.isfinite(g) else "inf")
+        print(f"  {d}: {c} gaps, mean {mg}")
+    print()
 
-    # autocorr over numeric values 0..9
-    vals = [int(ch) for ch in seq]
-    print("\nAutocorrelation (lags 1..5):")
-    for lag in range(1,6):
-        print(f"  lag {lag}: {autocorrelation(vals, lag):+.4f}")
+    # Autocorrelazione
+    ac = autocorr_lags(seq, [1, 2, 3, 4, 5])
+    print("Autocorrelation (lags 1..5):")
+    for L in [1, 2, 3, 4, 5]:
+        v = ac[L]
+        sign = "+" if v >= 0 else ""
+        print(f"  lag 1: {sign}{v:.4f}" if L == 1 else f"  lag {L}: {sign}{v:.4f}")
+    print()
 
-    # compression (text)
-    cr = compress_ratio_for_digits(seq)
-    print(f"\nCompression ratio (zlib over text): {cr:.4f}")
-    if cr < 0.44:
+    # Compression ratio
+    s = "".join(chr(48 + x) for x in seq).encode("ascii", errors="ignore")
+    comp = compress_ratio_bytes(s)
+    print(f"Compression ratio (zlib over text): {comp:.4f}")
+    if comp <= 0.44:
         print("  --> sotto ~0.44; può indicare ripetizioni o testo breve (limite teorico ~0.415 per alfabeto 10).")
-    elif cr < 0.60:
+    else:
         print("  --> compatibile con sequenze random-like su alfabeto 10.")
-    else:
-        print("  --> poco comprimibile (alta entropia o testo breve).")
+    print()
 
-    # N-gram (80/20)
-    split = int(N*0.8); tr = list(seq[:split]); ts = list(seq[split:])
-    print("\nN-gram predictor (80/20 split):")
-    ngram_acc={}
-    for n in (1,2,3):
-        ng=NGramPredictor(n); ng.train(tr)
-        acc=ng.accuracy_on(ts); ngram_acc[n]=acc
-        print(f"  n={n}: {acc:.4%} (baseline≈10%)")
+    # N-gram predictor (n=1..3)
+    print("N-gram predictor (80/20 split):")
+    best_acc = {}
+    for n in (1, 2, 3):
+        acc = ngram_predictor_accuracy(seq, M, n)
+        best_acc[n] = acc
+        print(f"  n={n}: {acc*100:.4f}% (baseline≈{100.0/M:.0f}%)")
+    print()
 
-    # Schur
-    print(f"\nSchurProbe (first {schur_N} symbols):")
-    first, tot, N_eff = schur_probe_count_symbols(list(seq), schur_N)
-    exp_sch, p_eq = schur_expected_from_empirical_counts([obs[d] for d in DIGITS], N_eff)
-    tot_tri = (N_eff-1)*N_eff//2
-    frac = tot/tot_tri if tot_tri else float('nan')
-    σ = math.sqrt(exp_sch*(1-p_eq)) if exp_sch>0 else float('nan')
-    z_sch = (tot-exp_sch)/σ if (σ and σ>0) else float('nan')
-    if first is not None: print(f"  first violation at index {first}")
-    print(f"  triples={tot_tri:,}  count={tot:,}  expected≈{int(exp_sch):,}  frac={frac:.5f}  z={z_sch:+.2f}")
+    # SchurProbe
+    print("SchurProbe (first 5000 symbols):")
+    sch = schur_probe(seq, M, Rcap=schur_N)
+    if sch["first_violation_index"] is not None:
+        print(f"  first violation at index {sch['first_violation_index']}")
+    print(f"  triples={sch['triples']:,}  count={sch['count']}  expected≈{sch['expected']:.0f}")
+    print(f"  fraction={sch['fraction']:.8f}  z={sch['z']:+.2f}\n")
 
-    # MC baseline
-    mc_mean=None
-    if mc>0:
-        mc_mean = mc_random_digits(N, mc)
-        print(f"\nMonte Carlo baseline (digits, {mc} reps): χ²≈{mc_mean['chi_mean']:.4f}, comp≈{mc_mean['comp_mean']:.4f}")
-
-    # JSON
-    if json_path:
-        metrics = {
-            "mode":"digits","alphabet":10,"N":N,
-            "chi_square":chi,
-            "runs":{"Z":z_run,"p":p_run},
-            "autocorr":[autocorrelation(vals,lag) for lag in range(1,6)],
-            "compress_ratio":cr,
-            "z_scores":zs,
-            "n_gram":ngram_acc,
-            "schur":{"count":tot,"expected":exp_sch,"z":z_sch,"fraction":frac,"N_eff":N_eff},
-            "montecarlo":mc_mean,
+    # JSON report
+    if report_json_path:
+        report = {
+            "mode": "digits",
+            "N": N,
+            "alphabet": M,
+            "chi_square": chi2,
+            "expected_per_bin": expected,
+            "counts": counts,
+            "zscores": {int(k): float(v) for k, v in zs.items()},
+            "runs": {"Z": float(Z), "p_two_tailed": float(p) if p == p else None},
+            "gaps": {int(k): {"count": int(v[0]), "mean": (float(v[1]) if math.isfinite(v[1]) else None)}
+                     for k, v in gaps.items()},
+            "autocorr": {int(k): float(v) for k, v in ac.items()},
+            "compress_ratio": comp,
+            "ngram": {int(k): float(v) for k, v in best_acc.items()},
+            "schur": {
+                "triples": int(sch["triples"]),
+                "count": int(sch["count"]),
+                "expected": float(sch["expected"]),
+                "fraction": float(sch["fraction"]),
+                "z": float(sch["z"]),
+                "first_violation_index": (int(sch["first_violation_index"])
+                                          if sch["first_violation_index"] is not None else None)
+            },
         }
-        with open(json_path,"w",encoding="utf8") as f: json.dump(metrics,f,indent=2)
-        print(f"\n[report-json] scritto: {json_path}")
+        with open(report_json_path, "w", encoding="utf8") as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+        print(f"[report-json] scritto: {report_json_path}")
 
-def analyze_integers_mode(seq_ints: List[int], M_hint:int|None, limit_n:int|None, mc:int, schur_N:int, json_path:str|None):
-    # cut + deduce alphabet
-    if limit_n: seq_ints = seq_ints[:limit_n]
-    if not seq_ints: print("No integers loaded."); return
-    maxv = max(seq_ints)
-    if M_hint is None:
-        M = maxv+1
-    else:
-        M = int(M_hint)
-    # clamp to [0..M-1]
-    seq = [v for v in seq_ints if 0 <= v < M]
+
+def analyze_integers_mode(seq: List[int], alphabet: int, Ncap: Optional[int],
+                          schur_N: int, report_json_path: Optional[str]) -> None:
+    if Ncap is not None and Ncap > 0:
+        seq = seq[:Ncap]
     N = len(seq)
-    if N==0: print("No integers in range 0..M-1."); return
+    M = alphabet
+    if M <= 0:
+        raise SystemExit("[err] --alphabet è richiesto e deve essere > 0 in modalità --integers")
 
-    print(f"MODE: integers  |  N={N}  alphabet M={M}  (max_observed={maxv})")
+    # clamp values to [0..M-1] se necessario
+    max_obs = max(seq) if seq else -1
+    seq_mod = [x % M for x in seq]
 
-    counts = counts_over_alphabet_int(seq, M)
-    E = N/M
-    chi = chi_square_from_counts(counts, E)
-    print(f"\nChi-square (M={M} bins): {chi:.4f} (expected per bin={E:.2f})")
+    print(f"MODE: integers  |  N={N}  alphabet M={M}  (max_observed={max_obs})\n")
 
-    # runs on parity of value
-    bin_seq = [1 if (v%2==0) else 0 for v in seq]
-    z_run, p_run = runs_test_binary(bin_seq)
-    print(f"\nRuns test (even/odd values): Z={z_run:.3f}, p={p_run:.3f}")
+    # Distribuzione + chi2
+    counts, chi2, expected = counts_and_chi_square(seq_mod, M)
+    print(f"Chi-square (M={M} bins): {chi2:.4f} (expected per bin={expected:.2f})\n")
 
-    # simple gaps for a few frequent symbols (top 5)
-    print("\nGaps summary (top-5 symbols by freq):")
-    top5 = sorted(range(M), key=lambda x: counts[x], reverse=True)[:5]
-    for sym in top5:
-        idxs = [i for i,v in enumerate(seq) if v==sym]
-        if len(idxs)<=1: print(f"  {sym}: <2 occurrences>")
-        else:
-            gaps = [idxs[i+1]-idxs[i] for i in range(len(idxs)-1)]
-            print(f"  {sym}: {len(gaps)} gaps, mean {sum(gaps)/len(gaps):.2f}")
+    # Runs su parità
+    Z, p = runs_test_even_odd(seq_mod)
+    print(f"Runs test (even/odd values): Z={Z:.3f}, p={p if p==p else float('nan'):.3f}\n")
 
-    # autocorr on raw values (scaled optional)
-    print("\nAutocorrelation (lags 1..5):")
-    vals = list(map(float, seq))
-    for lag in range(1,6):
-        print(f"  lag {lag}: {autocorrelation(vals, lag):+.4f}")
+    # Gaps (top-5 per frequenza)
+    gaps = gaps_summary(seq_mod, M)
+    top5 = top_k_by_freq(counts, k=5)
+    print("Gaps summary (top-5 symbols by freq):")
+    for sym, _ in top5:
+        c, g = gaps[sym]
+        mg = (f"{g:.2f}" if math.isfinite(g) else "inf")
+        print(f"  {sym}: {c} gaps, mean {mg}")
+    print()
 
-    # compression on textual ints (just heuristic)
-    cr = compress_ratio_for_integers(seq)
-    print(f"\nCompression ratio (zlib over 'ints text'): {cr:.4f}")
+    # Autocorrelazione
+    ac = autocorr_lags(seq_mod, [1, 2, 3, 4, 5])
+    print("Autocorrelation (lags 1..5):")
+    for L in [1, 2, 3, 4, 5]:
+        v = ac[L]
+        sign = "+" if v >= 0 else ""
+        print(f"  lag 1: {sign}{v:.4f}" if L == 1 else f"  lag {L}: {sign}{v:.4f}")
+    print()
 
-    # N-gram (80/20) on INTEGER symbols
-    split = int(N*0.8); tr = seq[:split]; ts = seq[split:]
-    print("\nN-gram predictor (80/20 split) over integer symbols:")
-    ngram_acc={}
-    for n in (1,2,3):
-        ng=NGramPredictor(n); ng.train(tr)
-        acc=ng.accuracy_on(ts); ngram_acc[n]=acc
-        base = 1.0/M if M>0 else float('nan')
-        print(f"  n={n}: {acc:.4%} (baseline≈{base:.2%})")
+    # Compression ratio (integers → testo con newline)
+    txt = ("\n".join(str(x) for x in seq_mod) + "\n").encode("utf8", errors="ignore")
+    comp = compress_ratio_bytes(txt)
+    print(f"Compression ratio (zlib over 'ints text'): {comp:.4f}\n")
 
-    # Schur over symbols equality
-    print(f"\nSchurProbe (first {schur_N} symbols):")
-    first, tot, N_eff = schur_probe_count_symbols(seq, schur_N)
-    exp_sch, p_eq = schur_expected_from_empirical_counts(counts_over_alphabet_int(seq[:N_eff], M), N_eff)
-    tot_tri = (N_eff-1)*N_eff//2
-    frac = tot/tot_tri if tot_tri else float('nan')
-    σ = math.sqrt(exp_sch*(1-p_eq)) if exp_sch>0 else float('nan')
-    z_sch = (tot-exp_sch)/σ if (σ and σ>0) else float('nan')
-    if first is not None: print(f"  first violation at index {first}")
-    print(f"  triples={tot_tri:,}  count={tot:,}  expected≈{int(exp_sch):,}  frac={frac:.6f}  z={z_sch:+.2f}")
+    # N-gram (n=1..3)
+    print("N-gram predictor (80/20 split) over integer symbols:")
+    best_acc = {}
+    for n in (1, 2, 3):
+        acc = ngram_predictor_accuracy(seq_mod, M, n)
+        best_acc[n] = acc
+        base = 100.0 / M if M > 0 else 0.0
+        print(f"  n={n}: {acc*100:.4f}% (baseline≈{base:.2f}%)")
+    print()
 
-    # MC baseline
-    mc_mean=None
-    if mc>0:
-        mc_mean = mc_random_integers(N, M, mc)
-        print(f"\nMonte Carlo baseline (integers, {mc} reps): χ²≈{mc_mean['chi_mean']:.4f}, comp≈{mc_mean['comp_mean']:.4f}")
+    # SchurProbe
+    print("SchurProbe (first 5000 symbols):")
+    sch = schur_probe(seq_mod, M, Rcap=schur_N)
+    if sch["first_violation_index"] is not None:
+        print(f"  first violation at index {sch['first_violation_index']}")
+    print(f"  triples={sch['triples']:,}  count={sch['count']}  expected≈{sch['expected']:.0f}  "
+          f"frac={sch['fraction']:.6f}  z={sch['z']:+.2f}\n")
 
-    # JSON
-    if json_path:
-        metrics = {
-            "mode":"integers","alphabet":M,"N":N,
-            "chi_square":chi,
-            "runs":{"Z":z_run,"p":p_run},
-            "autocorr":[autocorrelation(vals,lag) for lag in range(1,6)],
-            "compress_ratio":cr,
-            "n_gram":ngram_acc,
-            "schur":{"count":tot,"expected":exp_sch,"z":z_sch,"fraction":frac,"N_eff":N_eff},
-            "montecarlo":mc_mean,
+    # JSON report
+    if report_json_path:
+        report = {
+            "mode": "integers",
+            "N": N,
+            "alphabet": M,
+            "chi_square": chi2,
+            "expected_per_bin": expected,
+            "counts": counts,
+            "runs": {"Z": float(Z), "p_two_tailed": float(p) if p == p else None},
+            "gaps_top5": {int(sym): {"count": int(gaps[sym][0]),
+                                     "mean": (float(gaps[sym][1]) if math.isfinite(gaps[sym][1]) else None)}
+                          for sym, _ in top5},
+            "autocorr": {int(k): float(v) for k, v in ac.items()},
+            "compress_ratio": comp,
+            "ngram": {int(k): float(v) for k, v in best_acc.items()},
+            "schur": {
+                "triples": int(sch["triples"]),
+                "count": int(sch["count"]),
+                "expected": float(sch["expected"]),
+                "fraction": float(sch["fraction"]),
+                "z": float(sch["z"]),
+                "first_violation_index": (int(sch["first_violation_index"])
+                                          if sch["first_violation_index"] is not None else None)
+            },
         }
-        with open(json_path,"w",encoding="utf8") as f: json.dump(metrics,f,indent=2)
-        print(f"\n[report-json] scritto: {json_path}")
+        with open(report_json_path, "w", encoding="utf8") as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+        print(f"[report-json] scritto: {report_json_path}")
 
-# ---------- CLI ----------
-def parse_args():
-    ap=argparse.ArgumentParser(description="Analizza sequenze di cifre o interi (bucket) e produce statistiche.")
-    g=ap.add_mutually_exclusive_group(required=True)
-    g.add_argument('--file','-f',help="File di input.")
-    g.add_argument('--source','-s',choices=['pi','e'],help="Genera cifre via mpmath (modalità digits).")
-    ap.add_argument('--integers', action='store_true', help="Interpreta l'input come interi (bucket-mode).")
-    ap.add_argument('--alphabet','-A', type=int, default=None, help="Cardinalità alfabeto (p.es. 256 con k=8). Se assente: max+1 osservato.")
-    ap.add_argument('--n', type=int, default=None, help="Limita a N simboli (default: tutti).")
-    ap.add_argument('--mc', type=int, default=0, help="Monte Carlo reps (default 0=off).")
-    ap.add_argument('--schur-N', type=int, default=5000, help="Dimensione finestra per SchurProbe (default 5000).")
-    ap.add_argument('--report-json', help="Scrivi un JSON con tutte le metriche.")
+
+# ---------- main ----------
+
+def parse_args() -> argparse.Namespace:
+    ap = argparse.ArgumentParser(description="digit-probe: analisi di sequenze di cifre/interi")
+    ap.add_argument("--file", required=True, help="Input file: digits (senza spazi) o integers (uno per riga)")
+    ap.add_argument("--n", type=int, default=None, help="Limita la lunghezza analizzata")
+    ap.add_argument("--integers", action="store_true", help="Abilita modalità interi (uno per riga).")
+    ap.add_argument("--alphabet", type=int, default=None,
+                    help="Alfabeto per modalità integers (obbligatorio se --integers).")
+    ap.add_argument("--report-json", type=str, default=None, help="Scrive un report JSON compatibile con compare_reports.py")
+    # opzioni legacy / placeholder
+    ap.add_argument("--mc", type=int, default=None, help="(opzionale) Monte Carlo reps baseline (non obbligatorio)")
+    ap.add_argument("--schur-N", dest="schur_N", type=int, default=5000,
+                    help="R massimo per SchurProbe (default: 5000)")
     return ap.parse_args()
 
-def main():
+def main() -> None:
     a = parse_args()
-    if a.file:
-        if not os.path.exists(a.file):
-            sys.exit("File non trovato.")
-        if a.integers:
-            seq_ints = load_integers_from_file(a.file, a.n)
-            analyze_integers_mode(seq_ints, a.alphabet, a.n, a.mc, a.schir_N if hasattr(a,'schir_N') else a.__dict__['schur_N'], a.report_json)
-        else:
-            seq = load_digits_from_file(a.file, a.n)
-            analyze_digits_mode(seq, a.n, a.mc, a.schir_N if hasattr(a,'schir_N') else a.__dict__['schur_N'], a.report_json)
-    else:
-        # --source → solo digits
-        if not MP_AVAIL:
-            sys.exit("mpmath richiesto per --source")
-        if a.n is None or a.n<=0:
-            sys.exit("--source richiede --n (>0)")
-        seq = generate_constant_digits(a.source, a.n)
-        analyze_digits_mode(seq, a.n, a.mc, a.schir_N if hasattr(a,'schir_N') else a.__dict__['schur_N'], a.report_json)
 
-if __name__=="__main__":
+    if a.integers:
+        if a.alphabet is None or a.alphabet <= 0:
+            raise SystemExit("[err] in modalità --integers devi fornire --alphabet > 0")
+        seq = read_integers_file(a.file, a.n)
+        analyze_integers_mode(seq, a.alphabet, a.n, a.schur_N, a.report_json)
+    else:
+        seq = read_digits_file(a.file, a.n)
+        analyze_digits_mode(seq, a.n, a.mc, a.schur_N, a.report_json)
+
+if __name__ == "__main__":
     main()

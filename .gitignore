@@ -1,7 +1,89 @@
-*.pyc
+# === Python bytecode & cache ===
 __pycache__/
-.venv/
-.env
-.DS_Store
+*.py[cod]
+*$py.class
+*.pyo
 
-/datasets
+# === Virtual envs / tools ===
+.venv/
+.venv*/
+venv/
+env/
+.python-version          # pyenv
+.uv/                     # uv cache
+
+# === Packaging / build / dist ===
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+wheelhouse/
+
+# === Test & coverage ===
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+
+# === Type checkers / linters ===
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# === Editors / IDEs ===
+.vscode/
+.idea/
+*.code-workspace
+
+# === Jupyter ===
+.ipynb_checkpoints/
+*.ipynb#*
+
+# === OS cruft ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Env / secrets (conserva solo file-sample) ===
+.env
+.env.*
+!.env.example
+
+# === Project outputs / scratch ===
+out/
+reports/
+tmp/
+.cache/
+
+# === Datasets locali (consenti README/gitkeep) ===
+/datasets/
+!/datasets/README.md
+!/datasets/.gitkeep
+
+# === File generati dai nostri script (non essenziali al repo) ===
+# - dataset numerici “grezzi”
+pi_100k.txt
+e_100k.txt
+*_digits.txt
+
+# - export da Turbo-Bucketizer e simili
+buckets_*.txt
+buckets_*.csv
+
+# - risultati di probe tipici (se non vuoi versionarli)
+#   (commenta queste righe se vuoi tracciare i JSON/MD finali)
+*.json
+compare.csv
+compare.md
+SELFTEST_SUMMARY.md
+
+# === Backup / swap ===
+*~
+*.swp
+*.swo
