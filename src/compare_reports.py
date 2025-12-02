@@ -21,12 +21,14 @@ import math
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
+
 def load_report(path: str) -> Dict[str, Any]:
     with open(path, "r", encoding="utf8") as f:
         data = json.load(f)
     data["_path"] = path
     data["_name"] = os.path.basename(path)
     return data
+
 
 def safe_get_runs(data: Dict[str, Any]) -> Tuple[float, float]:
     """Estrae (Z, p) dal blocco 'runs' in modo robusto."""
@@ -38,6 +40,7 @@ def safe_get_runs(data: Dict[str, Any]) -> Tuple[float, float]:
         # eventuali schemi vecchi o alternativi
         p = runs.get("p") or runs.get("p_value") or float("nan")
     return float(Z), float(p)
+
 
 def safe_get_autocorr_max(data: Dict[str, Any]) -> float:
     """Restituisce max|autocorr|, calcolandolo se necessario."""
@@ -55,6 +58,7 @@ def safe_get_autocorr_max(data: Dict[str, Any]) -> float:
     except Exception:
         return float("nan")
 
+
 def safe_get_ngram_best(data: Dict[str, Any]) -> float:
     """Restituisce la miglior accuracy n-gram, calcolandola se necessario."""
     # Eventuale campo già pronto
@@ -71,6 +75,7 @@ def safe_get_ngram_best(data: Dict[str, Any]) -> float:
     except Exception:
         return float("nan")
 
+
 def safe_get_schur(data: Dict[str, Any]) -> Dict[str, Any]:
     sch = data.get("schur", {}) or {}
     res = {
@@ -83,6 +88,7 @@ def safe_get_schur(data: Dict[str, Any]) -> Dict[str, Any]:
     }
     return res
 
+
 def fmt(x: Any, digits: int = 4) -> str:
     try:
         if x is None:
@@ -94,6 +100,7 @@ def fmt(x: Any, digits: int = 4) -> str:
         return str(x)
     except Exception:
         return str(x)
+
 
 def severity_and_score(
     r: Dict[str, Any],
@@ -142,11 +149,11 @@ def severity_and_score(
         weight_sum += 1.0
 
     # euristiche:
-    add_term(chi2, b_chi2, scale=5.0, hard_ref=10.0)       # 10 ≈ valore medio per df=9
-    add_term(comp, b_comp, scale=0.02, hard_ref=0.48)      # atteso ~0.46–0.50
-    add_term(runsZ, b_runsZ, scale=1.0, hard_ref=0.0)      # Z vicino allo 0
-    add_term(ac_max, b_ac, scale=0.01, hard_ref=0.0)       # atteso ac_max piccolo
-    add_term(sch_z, b_sch_z, scale=1.0, hard_ref=0.0)      # z Schur vicino 0
+    add_term(chi2, b_chi2, scale=5.0, hard_ref=10.0)  # 10 ≈ valore medio per df=9
+    add_term(comp, b_comp, scale=0.02, hard_ref=0.48)  # atteso ~0.46–0.50
+    add_term(runsZ, b_runsZ, scale=1.0, hard_ref=0.0)  # Z vicino allo 0
+    add_term(ac_max, b_ac, scale=0.01, hard_ref=0.0)  # atteso ac_max piccolo
+    add_term(sch_z, b_sch_z, scale=1.0, hard_ref=0.0)  # z Schur vicino 0
     add_term(ngram_best, b_ng, scale=0.01, hard_ref=0.10)  # ~10%
 
     if weight_sum > 0:
@@ -163,6 +170,7 @@ def severity_and_score(
         sev = "red"
 
     return sev, norm_score
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Confronta report JSON di digit-probe.")
@@ -215,14 +223,22 @@ def main() -> None:
 
     # stampa per-file
     for row in enriched:
-        print(f"▶ {row['name']}  (N={row['N']})  "
-              f"{'🟢' if row['severity']=='green' else '🟡' if row['severity']=='yellow' else '🔴'} "
-              f"severity={row['severity']}  score={fmt(row['score'],4)}")
-        print(f"  chi²={fmt(row['chi2'])} [green] | comp={fmt(row['compress_ratio'])} | "
-              f"runs(Z,p)=({fmt(row['runsZ'])},{fmt(row['runs_p'])})")
-        print(f"  max|autocorr|={fmt(row['max_abs_autocorr'])} [green] | ngram_best={fmt(row['ngram_best'])}")
-        print(f"  Schur: z={fmt(row['sch_z'])} [green]  count={fmt(row['sch_count'])}  "
-              f"expected≈{fmt(row['sch_expected'])}  frac={fmt(row['sch_fraction'])}")
+        print(
+            f"▶ {row['name']}  (N={row['N']})  "
+            f"{'🟢' if row['severity']=='green' else '🟡' if row['severity']=='yellow' else '🔴'} "
+            f"severity={row['severity']}  score={fmt(row['score'],4)}"
+        )
+        print(
+            f"  chi²={fmt(row['chi2'])} [green] | comp={fmt(row['compress_ratio'])} | "
+            f"runs(Z,p)=({fmt(row['runsZ'])},{fmt(row['runs_p'])})"
+        )
+        print(
+            f"  max|autocorr|={fmt(row['max_abs_autocorr'])} [green] | ngram_best={fmt(row['ngram_best'])}"
+        )
+        print(
+            f"  Schur: z={fmt(row['sch_z'])} [green]  count={fmt(row['sch_count'])}  "
+            f"expected≈{fmt(row['sch_expected'])}  frac={fmt(row['sch_fraction'])}"
+        )
         print()
 
     # ordina per (score, |Schur z|, chi², max|ac|)
@@ -238,8 +254,10 @@ def main() -> None:
 
     # stampa confronto tabellare semplice
     print("=== COMPARISON (sorted by AnomalyScore, |Schur z|, chi², max|ac|) ===")
-    print("file | N | severity | score | chi² | Δχ² | comp | Δcomp | runsZ | ΔrunsZ | "
-          "max|ac| | Δmax|ac| | ngram_best | Δngram | Schur z | ΔSchur z")
+    print(
+        "file | N | severity | score | chi² | Δχ² | comp | Δcomp | runsZ | ΔrunsZ | "
+        "max|ac| | Δmax|ac| | ngram_best | Δngram | Schur z | ΔSchur z"
+    )
 
     # baseline numerica per Δ
     if baseline_data is not None:
@@ -267,42 +285,59 @@ def main() -> None:
         else:
             d_chi2 = d_comp = d_runsZ = d_ac = d_ng = d_sch = float("nan")
 
-        print(f"{row['name']} | {row['N']} | {row['severity']} | {fmt(row['score'],4)} | "
-              f"{fmt(row['chi2'])} | {fmt(d_chi2)} | "
-              f"{fmt(row['compress_ratio'])} | {fmt(d_comp)} | "
-              f"{fmt(row['runsZ'])} | {fmt(d_runsZ)} | "
-              f"{fmt(row['max_abs_autocorr'])} | {fmt(d_ac)} | "
-              f"{fmt(row['ngram_best'])} | {fmt(d_ng)} | "
-              f"{fmt(row['sch_z'])} | {fmt(d_sch)}")
+        print(
+            f"{row['name']} | {row['N']} | {row['severity']} | {fmt(row['score'],4)} | "
+            f"{fmt(row['chi2'])} | {fmt(d_chi2)} | "
+            f"{fmt(row['compress_ratio'])} | {fmt(d_comp)} | "
+            f"{fmt(row['runsZ'])} | {fmt(d_runsZ)} | "
+            f"{fmt(row['max_abs_autocorr'])} | {fmt(d_ac)} | "
+            f"{fmt(row['ngram_best'])} | {fmt(d_ng)} | "
+            f"{fmt(row['sch_z'])} | {fmt(d_sch)}"
+        )
 
     # CSV opzionale
     if args.csv:
         import csv
+
         with open(args.csv, "w", newline="", encoding="utf8") as f:
             w = csv.writer(f)
-            w.writerow([
-                "file","N","chi_square","compress_ratio",
-                "runs_Z","runs_p","max_abs_autocorr",
-                "ngram_best","sch_z","sch_count","sch_expected","sch_fraction",
-                "severity","score",
-            ])
+            w.writerow(
+                [
+                    "file",
+                    "N",
+                    "chi_square",
+                    "compress_ratio",
+                    "runs_Z",
+                    "runs_p",
+                    "max_abs_autocorr",
+                    "ngram_best",
+                    "sch_z",
+                    "sch_count",
+                    "sch_expected",
+                    "sch_fraction",
+                    "severity",
+                    "score",
+                ]
+            )
             for row in enriched:
-                w.writerow([
-                    row["name"],
-                    row["N"],
-                    row["chi2"],
-                    row["compress_ratio"],
-                    row["runsZ"],
-                    row["runs_p"],
-                    row["max_abs_autocorr"],
-                    row["ngram_best"],
-                    row["sch_z"],
-                    row["sch_count"],
-                    row["sch_expected"],
-                    row["sch_fraction"],
-                    row["severity"],
-                    row["score"],
-                ])
+                w.writerow(
+                    [
+                        row["name"],
+                        row["N"],
+                        row["chi2"],
+                        row["compress_ratio"],
+                        row["runsZ"],
+                        row["runs_p"],
+                        row["max_abs_autocorr"],
+                        row["ngram_best"],
+                        row["sch_z"],
+                        row["sch_count"],
+                        row["sch_expected"],
+                        row["sch_fraction"],
+                        row["severity"],
+                        row["score"],
+                    ]
+                )
         print(f"[csv] scritto: {args.csv}")
 
     # Markdown opzionale
@@ -311,7 +346,9 @@ def main() -> None:
             f.write("# Digit-Probe Compare\n\n")
             if baseline_data is not None:
                 f.write(f"**Baseline:** `{os.path.basename(baseline_data['_path'])}`\n\n")
-            f.write("| file | N | severity | score | chi² | comp | runsZ | max|ac| | ngram_best | Schur z |\n")
+            f.write(
+                "| file | N | severity | score | chi² | comp | runsZ | max|ac| | ngram_best | Schur z |\n"
+            )
             f.write("|---|---:|:--:|--:|--:|--:|--:|--:|--:|--:|\n")
             for row in enriched_sorted:
                 f.write(
@@ -320,6 +357,7 @@ def main() -> None:
                     f"{fmt(row['max_abs_autocorr'])} | {fmt(row['ngram_best'])} | {fmt(row['sch_z'])} |\n"
                 )
         print(f"[md] scritto: {args.md}")
+
 
 if __name__ == "__main__":
     main()

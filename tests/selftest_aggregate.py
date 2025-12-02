@@ -3,8 +3,8 @@
 import json
 import math
 import sys
-
 from pathlib import Path
+
 
 def fmt_runs(r: dict) -> str:
     """Format runs test as 'Z=.., p=..' handling None/NaN safely."""
@@ -28,6 +28,7 @@ def fmt_runs(r: dict) -> str:
         # fallback se p è stringa o altro tipo strano
         return f"Z={z:.2f}, p={p}"
 
+
 def fmt_schur(s: dict) -> str:
     """Format SchurProbe as 'z=.., frac=..' gestendo None/NaN."""
     if not isinstance(s, dict) or not s:
@@ -44,6 +45,7 @@ def fmt_schur(s: dict) -> str:
     except Exception:
         return f"z={z:.2f}, frac={frac}"
 
+
 def fmt_num(x, nd: int = 4) -> str:
     """Format numero o restituisci stringa grezza."""
     if isinstance(x, (int, float)):
@@ -51,6 +53,7 @@ def fmt_num(x, nd: int = 4) -> str:
             return "nan"
         return f"{x:.{nd}f}"
     return str(x)
+
 
 def get_out_dir_from_argv() -> Path:
     """
@@ -76,6 +79,7 @@ def get_out_dir_from_argv() -> Path:
 
     # Forma semplice: primo argomento = directory
     return Path(args[0])
+
 
 def main() -> None:
     out_dir = get_out_dir_from_argv()
@@ -110,6 +114,7 @@ def main() -> None:
             f"{path.name} | {N} | {fmt_num(chi2,4)} | {fmt_num(comp,4)} | "
             f"{runs_str} | {schur_str}"
         )
+
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,5 @@
 # digit-probe v1.0.0 — Initial stable release
-Analizzatore leggero di sequenze numeriche (cifre o interi) con report statistici, confronto tra dataset e supporto a casi d’uso “random-like vs struttura”.  
+Analizzatore leggero di sequenze numeriche (cifre o interi) con report statistici, confronto tra dataset e supporto a casi d’uso “random-like vs struttura”.
 
 Questa è la prima versione stabile e completa del toolkit.
 

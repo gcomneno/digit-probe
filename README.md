@@ -1,26 +1,26 @@
-# digit-probe
-Analizzatore **statistico/strutturale** per sequenze numeriche. 
+# Digit-Probe
+Analizzatore **statistico/strutturale** per sequenze numeriche.
 
 Supporta:
 - **cifre** (`digits`): file di sole cifre `0..9` senza spazi/newline
 - **interi** (`integers`): un intero per riga con **alfabeto dichiarato** (`--alphabet M`)
 
-Pensato per diagnosticare **random-like vs struttura** in stream numerici e per ispezionare **bucket** prodotti da strumenti esterni 
-(es. [Turbo-Bucketizer](https://github.com/gcomneno/turbo-bucketizer)).
-(es. [Turbo-Bucketizer-2](https://github.com/gcomneno/turbo-bucketizer-cpp)).
+Pensato per diagnosticare **random-like vs struttura** in stream numerici e per ispezionare **bucket** prodotti da strumenti esterni:
+(es. [Turbo-Bucketizer](https://github.com/gcomneno/turbo-bucketizer))
+(o [Turbo-Bucketizer-2](https://github.com/gcomneno/turbo-bucketizer-cpp))
 ---
 
 ## ✨ Cosa misura
 
-- **Distribuzione** per simbolo, **chi-square**, **z-score**  
-- **Runs test** (pari/dispari)  
-- **Gaps** per simbolo (conteggio e **gap medio**)  
-- **Autocorrelazione** (lag `1..5`)  
-- **Compression ratio (zlib)** come proxy di ripetizione/struttura  
-- **N-gram predictor** (n=1..3, split 80/20)  
-- **SchurProbe** *(additività mod M)*  
-  - Coppie `i<j`, indice `k=(i+j) mod R`  
-  - Verifica `(seq[i]+seq[j]) % M == seq[k]`  
+- **Distribuzione** per simbolo, **chi-square**, **z-score**
+- **Runs test** (pari/dispari)
+- **Gaps** per simbolo (conteggio e **gap medio**)
+- **Autocorrelazione** (lag `1..5`)
+- **Compression ratio (zlib)** come proxy di ripetizione/struttura
+- **N-gram predictor** (n=1..3, split 80/20)
+- **SchurProbe** *(additività mod M)*
+  - Coppie `i<j`, indice `k=(i+j) mod R`
+  - Verifica `(seq[i]+seq[j]) % M == seq[k]`
   - `N_triples = C(R,2)`, atteso `E = N_triples/M`, varianza `N p (1-p)`, `z-score` standard
 
 Output: **stampa leggibile** + **JSON** opzionale con `--report-json` (compatibile con `compare_reports.py`).
@@ -49,7 +49,7 @@ src/
   compare_reports.py
   make_datasets.py
 tests/
-  basic.sh, 
+  basic.sh,
   advanced.sh,
   gen_*.py
 Makefile

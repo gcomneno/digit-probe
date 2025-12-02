@@ -31,7 +31,7 @@ Per ciascuna sequenza `digit-probe` ha calcolato:
   - si considerano i primi `R = 5000` simboli
   - si testano tutte le coppie `i < j` con `k = (i + j) mod R`
   - condizione: `(seq[i] + seq[j]) % 10 == seq[k]`
-  - atteso casuale: ~1 tripletta “buona” su 10  
+  - atteso casuale: ~1 tripletta “buona” su 10
     → `E = C(R,2) / 10`, varianza binomiale `N p (1-p)`, z-score standard
 
 ---
@@ -65,15 +65,15 @@ Entrambe le sequenze mostrano conteggi per cifra molto vicini all’atteso teori
 - e: chi² ≈ **17,68** (leggermente più alto, ma ancora in range normale)
 
 Gli z-score per singola cifra restano tutti nell’intervallo ±3σ, quindi:
-> **Conclusione:** nessuna cifra “dominante” o “mancante” in modo sospetto per π o e.  
+> **Conclusione:** nessuna cifra “dominante” o “mancante” in modo sospetto per π o e.
 > Distribuzione compatibile con un modello uniforme iid su 0..9.
 
 ---
 
 ### 3.2 Runs test (pari/dispari)
 
-- π: Z ≈ 0,56, p ≈ 0,57  
-- e: Z ≈ 0,32, p ≈ 0,75  
+- π: Z ≈ 0,56, p ≈ 0,57
+- e: Z ≈ 0,32, p ≈ 0,75
 
 In entrambi i casi il p-value è ben lontano da soglie tipiche di allarme (0,05 / 0,01).
 
@@ -96,27 +96,27 @@ Per una sorgente iid uniforme su 10 simboli, il gap medio atteso è esattamente 
 ### 3.4 Autocorrelazione
 
 Primi 5 lag:
-- π: \|ρ(lag)\| ≤ ~0,0027  
-- e: \|ρ(lag)\| ≤ ~0,0022  
+- π: \|ρ(lag)\| ≤ ~0,0027
+- e: \|ρ(lag)\| ≤ ~0,0022
 
 Per N=100.000 questi valori sono molto piccoli; non appaiono picchi nettamente fuori scala.
 
-> **Conclusione:** nessuna correlazione lineare evidente a corto raggio.  
+> **Conclusione:** nessuna correlazione lineare evidente a corto raggio.
 > Le cifre successive non “si inseguono” con pattern banali rilevabili dall’autocorrelazione.
 
 ---
 
 ### 3.5 Compression ratio (zlib)
 
-- π: 0,48173  
-- e: 0,48188  
+- π: 0,48173
+- e: 0,48188
 
 Il limite teorico per una sorgente perfettamente casuale su alfabeto 10 è ~0,415 (entropia in bit per simbolo / 8), ma:
 
 - su 100k cifre, un rapporto attorno a 0,47–0,50 è del tutto realistico
 - valori **molto più bassi** (<0,44) sarebbero indicativi di forte struttura/ripetizione
 
-> **Conclusione:** le sequenze non risultano “facilmente comprimibili” oltre quanto ci si aspetterebbe da un sorgente ad alta entropia.  
+> **Conclusione:** le sequenze non risultano “facilmente comprimibili” oltre quanto ci si aspetterebbe da un sorgente ad alta entropia.
 > Nessun pattern macroscopico sfruttato da zlib.
 
 ---
@@ -136,8 +136,8 @@ Accuracy sul set di test (20% finale):
 
 Baseline “pura” (indovinare a caso una cifra su 10) = **10%**.
 
-> **Conclusione:** i modelli n-gram non riescono a sfruttare alcuna struttura ripetitiva stabile;  
-> il vantaggio rispetto al “lancio di una moneta a 10 facce” è trascurabile.  
+> **Conclusione:** i modelli n-gram non riescono a sfruttare alcuna struttura ripetitiva stabile;
+> il vantaggio rispetto al “lancio di una moneta a 10 facce” è trascurabile.
 > In pratica: **non imparano nulla di utile**.
 
 ---
@@ -148,28 +148,28 @@ Per entrambi i casi:
 - si considerano i primi `R = 5000` digit
 - si testano tutte le coppie `i<j`:
   - `triples = C(5000,2) = 12.497.500`
-- condizione:  
+- condizione:
   `(seq[i] + seq[j]) % 10 == seq[(i + j) % 5000]`
-- atteso con modello casuale:  
+- atteso con modello casuale:
   `E = triples / 10 = 1.249.750` (~10% delle triple)
 
 Risultati:
 - π:
-  - `count ≈ 1.250.371`  
-  - `expected = 1.249.750`  
-  - `fraction ≈ 0,1000497`  
+  - `count ≈ 1.250.371`
+  - `expected = 1.249.750`
+  - `fraction ≈ 0,1000497`
   - `z ≈ 0,586`
 - e:
-  - `count ≈ 1.249.813`  
-  - `expected = 1.249.750`  
-  - `fraction ≈ 0,1000050`  
+  - `count ≈ 1.249.813`
+  - `expected = 1.249.750`
+  - `fraction ≈ 0,1000050`
   - `z ≈ 0,059`
 
 Entrambi i valori di z-score sono **molto vicini a 0**, con e addirittura più “aderente” all’atteso di π.
 
-> **Conclusione:** anche sotto il test additivo “alla Schur” (che cerca struttura del tipo  
-> “somma di due posizioni ricade spesso in un terzo indice con la stessa somma mod 10”)  
-> **π ed e si comportano come sequenze casuali**.  
+> **Conclusione:** anche sotto il test additivo “alla Schur” (che cerca struttura del tipo
+> “somma di due posizioni ricade spesso in un terzo indice con la stessa somma mod 10”)
+> **π ed e si comportano come sequenze casuali**.
 > Non emerge alcuna struttura additiva “sospetta” nella finestra di 5000 cifre.
 
 ---
@@ -189,10 +189,10 @@ Su un blocco di **100.000 cifre**:
   - **coerenti con la casualità** anche rispetto al test **SchurProbe**.
 
 In altre parole:
-> All’interno della sensibilità di `digit-probe` e della finestra analizzata,  
-> **π ed e si comportano come ottimi generatori pseudo–casuali decimali**.  
+> All’interno della sensibilità di `digit-probe` e della finestra analizzata,
+> **π ed e si comportano come ottimi generatori pseudo–casuali decimali**.
 
-Questo non dice nulla di definitivo sul loro status di numeri normali (problema aperto),  
+Questo non dice nulla di definitivo sul loro status di numeri normali (problema aperto),
 ma fornisce una base pratica: **i due dataset sono ottime baseline “random-like”** per confrontare:
 - sequenze provenienti da generatori pseudo–casuali,
 - bucket generati da sistemi come Turbo-Bucketizer,
