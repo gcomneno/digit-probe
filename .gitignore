@@ -61,17 +61,6 @@ reports/
 tmp/
 .cache/
 
-# === Datasets locali (consenti README/gitkeep) ===
-/datasets/
-!/datasets/README.md
-!/datasets/.gitkeep
-
-# === File generati dai nostri script (non essenziali al repo) ===
-# - dataset numerici “grezzi”
-pi_100k.txt
-e_100k.txt
-*_digits.txt
-
 # - export da Turbo-Bucketizer e simili
 buckets_*.txt
 buckets_*.csv
