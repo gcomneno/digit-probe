@@ -324,6 +324,13 @@ Atteso “casuale”: **1 volta su M**. Misuriamo quanto te ne discosti con uno 
 
 ---
 
+## Case study
+
+- [Lotto 2025 – caratterizzazione con Digit-Probe](docs/case-study-lotto-2025.md)
+  Esempio reale di utilizzo in modalità `integers` (1..90), confrontato con un RNG uniforme baseline.
+
+---
+
 ## 📄 Licenza
 
 MIT. Vedi `LICENSE`.
@@ -331,5 +338,4 @@ MIT. Vedi `LICENSE`.
 ---
 
 ## 💡 Motto
-
 > “Se è **random-like**, non lo è per sempre. Se è **strutturato**, lo becchiamo.”
