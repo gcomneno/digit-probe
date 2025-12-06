@@ -53,6 +53,8 @@ desktop.ini
 # === Env / secrets (conserva solo file-sample) ===
 .env
 .env.*
+*.env.local
+*.envrc
 !.env.example
 
 # === Project outputs / scratch ===
@@ -76,3 +78,13 @@ SELFTEST_SUMMARY.md
 *~
 *.swp
 *.swo
+
+# Credenziali / chiavi
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Config locali
+config.local.*
+secrets.*

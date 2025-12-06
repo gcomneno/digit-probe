@@ -111,14 +111,13 @@ def make_gallery() -> None:
         "- `M`: dimensione alfabeto (`alphabet`)\n"
         "- `χ²`: chi-quadrato sulla distribuzione dei simboli\n"
         "- `compress`: rapporto di compressione zlib (più basso = più struttura/ripetizione)\n"
-        "- `max|ρ|`: massimo valore assoluto di autocorrelazione sui lag 1..5\n"
+        "- `max_rho`: massimo valore assoluto di autocorrelazione sui lag 1..5\n"
         "- `Schur z`: z-score del test SchurProbe\n"
     )
     lines.append("---\n")
 
-    # Header con allineamento "sensato" per GitHub:
-    lines.append("| Dataset | Tipo | N | M | χ² | compress | max|ρ| (lag≤5) | Schur z |")
-    lines.append("|:--------|:-----|---:|---:|---:|--------:|---------------:|--------:|")
+    lines.append("| Dataset | Tipo | N | M | χ² | compress | max_rho (lag≤5) | Schur z |")
+    lines.append("|:--------|:-----|---:|---:|---:|--------:|----------------:|--------:|")
 
     for row in rows:
         label = row["label"]
