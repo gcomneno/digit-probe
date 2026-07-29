@@ -7,7 +7,6 @@ Supporta:
 
 Pensato per diagnosticare **random-like vs struttura** in stream numerici e per ispezionare **bucket** prodotti da strumenti esterni:
 (es. [Turbo-Bucketizer](https://github.com/gcomneno/turbo-bucketizer))
-(o [Turbo-Bucketizer-2](https://github.com/gcomneno/turbo-bucketizer-cpp))
 
 ---
 
