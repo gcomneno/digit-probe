@@ -1,7 +1,47 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "digit-probe"
+version = "1.0.0"
+description = "Statistical and structural analyzer for numeric sequences"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Giancarlo Cicellyn Comneno" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = []
+
+[project.scripts]
+digit-probe = "digit_probe:main"
+
+[project.urls]
+Homepage = "https://github.com/gcomneno/digit-probe"
+Repository = "https://github.com/gcomneno/digit-probe"
+Issues = "https://github.com/gcomneno/digit-probe/issues"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["digit_probe"]
+
 [tool.ruff]
 src = ["src"]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]
