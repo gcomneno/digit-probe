@@ -1,1 +1,1 @@
-mpmath>=1.3
+mpmath>=1.4.1
