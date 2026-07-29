@@ -34,8 +34,11 @@ Richiede **Python 3.11+** (ok anche 3.13).
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt  # leggero: usa solo stdlib + pochi pacchetti
+python -m pip install .
 ```
+
+La CLI installata usa solo la libreria standard. `requirements.txt` include invece
+dipendenze opzionali usate dagli strumenti di generazione dataset nel repository.
 
 > Suggerito: tenere i dataset/risultati fuori dal versionamento (`.gitignore` già predisposto).
 
@@ -71,7 +74,7 @@ Makefile
 ### Modalità **digits** (cifre senza spazi “logici”)
 
 ```bash
-python3 src/digit_probe.py --file pi_100k.txt --report-json pi.json
+digit-probe --file pi_100k.txt --report-json pi.json
 ```
 
 - L’input è trattato come **stream di cifre**: i caratteri `0..9` vengono letti, tutto il resto viene ignorato (spazi, newline, virgole…).
@@ -81,8 +84,11 @@ python3 src/digit_probe.py --file pi_100k.txt --report-json pi.json
 
 ```bash
 # Esempio: bucket in [0..4095]
-python3 src/digit_probe.py --file buckets_k12.txt --integers --alphabet 4096 --report-json buckets.json
+digit-probe --file buckets_k12.txt --integers --alphabet 4096 --report-json buckets.json
 ```
+
+L'invocazione diretta `python3 src/digit_probe.py ...` resta disponibile da un checkout
+del repository.
 
 - Ogni riga deve contenere un singolo intero (con eventuali spazi iniziali/finali).
 - I valori sono usati **mod M** (`M = --alphabet`), quindi un valore 5000 con `--alphabet 4096` diventa 5000 % 4096.
@@ -127,7 +133,7 @@ Esempi:
 - ora puoi analizzare:
 
   ```bash
-  python3 src/digit_probe.py --file mydigits.txt --report-json mydigits.json
+  digit-probe --file mydigits.txt --report-json mydigits.json
   ```
 
 ### 3. Preparazione file per modalità `integers`
@@ -150,13 +156,13 @@ Esempi:
   analisi:
 
   ```bash
-  python3 src/digit_probe.py     --file my_buckets.txt     --integers     --alphabet 4096     --report-json my_buckets.json
+  digit-probe --file my_buckets.txt --integers --alphabet 4096 --report-json my_buckets.json
   ```
 
 - hai numeri `1..90` (es. estrazioni del Lotto) uno per riga:
 
   ```bash
-  python3 src/digit_probe.py     --file lotto_2025_numbers.txt     --integers     --alphabet 90     --report-json lotto_2025_integers.json
+  digit-probe --file lotto_2025_numbers.txt --integers --alphabet 90 --report-json lotto_2025_integers.json
   ```
 
   (internamente verranno usati mod 90, ma se i valori sono già in `1..90` l’effetto è nullo).
@@ -219,8 +225,8 @@ python3 src/make_datasets.py --n 100000 --only e  --offline
 Poi analizza:
 
 ```bash
-python3 src/digit_probe.py --file pi_100k.txt --report-json pi.json
-python3 src/digit_probe.py --file e_100k.txt  --report-json e.json
+digit-probe --file pi_100k.txt --report-json pi.json
+digit-probe --file e_100k.txt  --report-json e.json
 ```
 
 ---
