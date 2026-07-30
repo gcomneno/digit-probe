@@ -363,10 +363,13 @@ Atteso “casuale”: **1 volta su M**. Misuriamo quanto te ne discosti con uno 
 
 ---
 
-## Case study
+## Documentazione interpretativa
 
 - [Lotto 2025 – caratterizzazione con Digit-Probe](docs/case-study-lotto-2025.md)
-  Esempio reale di utilizzo in modalità `integers` (1..90), confrontato con un RNG uniforme baseline.
+  Esempio reale di utilizzo in modalità `integers` (`1..90`), confrontato con una baseline RNG uniforme.
+
+- [Lesson learned – Interpretare Digit-Probe senza farsi ingannare dalla baseline](docs/lesson-learned-interpreting-digit-probe.md)
+  Esercitazione cumulativa su frequenze, ordine, predicibilità, gap, p-value, rappresentazione dei dati e falsi allarmi statistici.
 
 ---
 
