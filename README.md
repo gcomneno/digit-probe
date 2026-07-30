@@ -48,7 +48,11 @@ dipendenze opzionali usate dagli strumenti di generazione dataset nel repository
 
 ```bash
 src/
-  digit_probe.py          # core analyzer (CLI)
+  digit_probe/            # importable analyzer package
+    core.py                # pure metrics and structured analysis results
+    reporting.py           # existing JSON mapping and human rendering
+    cli.py                 # argparse, file I/O, output, and command exits
+  digit_probe.py          # direct-invocation compatibility shim
   compare_reports.py      # confronto tra più JSON
   make_datasets.py        # generatori semplici (pi, e, gradienti, ecc.)
   generative/
@@ -103,6 +107,36 @@ del repository.
 --report-json OUT.json  salva un report JSON
 --schur-N R             R massimo per SchurProbe (default: 5000)
 ```
+
+## 🐍 API Python
+
+L'API pubblica è piccola e lavora esclusivamente su sequenze già in memoria:
+
+```python
+from digit_probe import AnalysisConfig, analyze_digits
+
+result = analyze_digits([3, 1, 4, 1, 5, 9], AnalysisConfig(schur_capacity=100))
+print(result.chi_square)
+```
+
+Per simboli interi, dichiara esplicitamente l'alfabeto. Come nella CLI storica,
+i valori vengono analizzati modulo l'alfabeto:
+
+```python
+from digit_probe import AnalysisConfig, analyze_integer_symbols
+
+result = analyze_integer_symbols([17, 210, 3, 4095], alphabet=4096,
+                                 config=AnalysisConfig(schur_capacity=500))
+```
+
+Gli unici import pubblici sono `AnalysisConfig`, `AnalysisResult`,
+`analyze_digits` e `analyze_integer_symbols`. Le funzioni di analisi non stampano,
+non leggono o scrivono file, non interpretano argomenti e non terminano il processo.
+`digit_probe.reporting` converte invece il risultato nel report JSON esistente e
+renderizza l'output leggibile; `digit_probe.cli` è il solo confine per argparse e I/O.
+
+La CLI `digit-probe`, le sue opzioni e il formato JSON corrente restano compatibili
+con `compare_reports.py`; il report non ha ancora un campo di versione/schema.
 
 ---
 
