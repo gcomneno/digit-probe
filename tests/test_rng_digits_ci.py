@@ -18,7 +18,13 @@ import sys
 from pathlib import Path
 
 import pytest
-from src.generative.gen_rng_zoo import main as gen_rng_zoo_main
+from src.generative.gen_rng_zoo import (
+    gen_biased7,
+    gen_lcg_mod10,
+)
+from src.generative.gen_rng_zoo import (
+    main as gen_rng_zoo_main,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DIGIT_PROBE = BASE_DIR / "src" / "digit_probe.py"
@@ -41,6 +47,19 @@ def run_digit_probe_digits(input_path: Path, json_out: Path) -> dict:
     subprocess.run(cmd, check=True, capture_output=True, text=True)
     data = json.loads(json_out.read_text(encoding="utf-8"))
     return data
+
+
+def render_digit_probe_digits(input_path: Path) -> str:
+    """Esegue digit_probe.py in modalità digits e ritorna il report umano."""
+    cmd = [
+        sys.executable,
+        str(DIGIT_PROBE),
+        "--file",
+        str(input_path),
+        "--alphabet",
+        "0123456789",
+    ]
+    return subprocess.run(cmd, check=True, capture_output=True, text=True).stdout
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -104,6 +123,31 @@ def test_biased7_shows_strong_marginal_bias(tmp_path: Path) -> None:
 
     # Distribuzione compressibile più dell'uniforme
     assert compress < 0.49
+
+
+def test_compression_messages_are_limited_to_compressibility(tmp_path: Path) -> None:
+    """Both threshold branches describe zlib compressibility, not randomness."""
+    biased_path = tmp_path / "biased7_10k.txt"
+    biased_path.write_text("".join(gen_biased7(10_000)), encoding="utf-8")
+
+    biased_report = run_digit_probe_digits(biased_path, tmp_path / "biased7_10k.json")
+    biased_human_report = render_digit_probe_digits(biased_path)
+    assert biased_report["compress_ratio"] > 0.44
+    assert biased_report["counts"]["7"] > 0.3 * biased_report["N"]
+    assert (
+        "questa euristica zlib non ha rilevato forte struttura comprimibile" in biased_human_report
+    )
+    assert "non conclude sulla casualità complessiva" in biased_human_report
+    assert "compatibile con sequenze random-like su alfabeto 10" not in biased_human_report
+
+    compressible_path = tmp_path / "lcg_10k.txt"
+    compressible_path.write_text("".join(gen_lcg_mod10(10_000)), encoding="utf-8")
+
+    compressible_report = run_digit_probe_digits(compressible_path, tmp_path / "lcg_10k.json")
+    compressible_human_report = render_digit_probe_digits(compressible_path)
+    assert compressible_report["compress_ratio"] <= 0.44
+    assert "può indicare ripetizioni o altra struttura comprimibile" in compressible_human_report
+    assert "Sui campioni brevi l'overhead di zlib può incidere" in compressible_human_report
 
 
 def test_lcg_mod10_is_clearly_broken(tmp_path: Path) -> None:

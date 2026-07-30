@@ -258,7 +258,7 @@ La CI (GitHub Actions) lancia `pytest` e verifica che:
 - l’RNG **uniforme** risulti:
   - chi-square piccolo,
   - z-score per cifra vicino a 0,
-  - compressione compatibile con random-like,
+  - assenza di forte struttura facilmente comprimibile rilevata da zlib,
   - SchurProbe con `z` vicino a 0;
 - il dataset **biased7** risulti **fortemente non uniforme**:
   - il 7 è iper-frequente,
@@ -327,8 +327,15 @@ Output sintetico (ordinabile) con indicatori di severità e **AnomalyScore**.
 ## 📘 Esempi interpretativi (due dritte)
 
 - **Compressione zlib**
-  - *digits (M=10)* random-like ⇒ ~**0.46–0.50**
-  - valori **molto bassi** (≪0.44) ⇒ ripetizioni/strutture/periodicità
+  - misura solo ripetizioni o altra struttura facilmente comprimibile nella
+    rappresentazione analizzata;
+  - valori **molto bassi** (≪0.44) possono indicare ripetizioni/strutture;
+    sui campioni brevi l'overhead di zlib incide sul rapporto;
+  - un valore più alto indica soltanto che zlib non ha rilevato forte struttura
+    comprimibile: non dimostra uniformità, indipendenza, imprevedibilità o
+    casualità complessiva.
+  - interpretare sempre il risultato insieme a distribuzione (chi-square e
+    z-score) e dipendenza (runs, autocorrelazione e predictor).
 
 - **Autocorrelazione**
   - random-like ⇒ `|ρ|` piccoli (≲0.02 con N grandi)
