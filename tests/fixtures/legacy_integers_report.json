@@ -1,0 +1,14 @@
+{
+  "mode": "integers",
+  "N": 3,
+  "alphabet": 5,
+  "chi_square": 5.333333333333332,
+  "expected_per_bin": 0.6,
+  "counts": {"0": 2, "1": 0, "2": 0, "3": 0, "4": 1},
+  "runs": {"Z": NaN, "p_two_tailed": null},
+  "gaps_top5": {"0": {"count": 1, "mean": 1.0}, "4": {"count": 0, "mean": null}, "1": {"count": 0, "mean": null}, "2": {"count": 0, "mean": null}, "3": {"count": 0, "mean": null}},
+  "autocorr": {"1": -0.16666666666666669, "2": -0.3333333333333333, "3": NaN, "4": NaN, "5": NaN},
+  "compress_ratio": 2.0,
+  "ngram": {"1": NaN, "2": NaN, "3": NaN},
+  "schur": {"triples": 3, "count": 0, "expected": 0.6000000000000001, "fraction": 0.0, "z": -0.8660254037844386, "first_violation_index": null}
+}
