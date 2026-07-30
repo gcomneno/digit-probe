@@ -16,7 +16,7 @@ def report_mapping(result: AnalysisResult) -> dict[str, Any]:
         "expected": float(result.schur.expected),
         "fraction": float(result.schur.fraction),
         "z": float(result.schur.z_score),
-        "first_violation_index": result.schur.first_violation_index,
+        "first_violation_index": result.schur.first_matching_relation_index,
     }
     report: dict[str, Any] = {
         "mode": result.mode,
@@ -144,8 +144,11 @@ def render_human_report(result: AnalysisResult) -> str:
         lines.append(f"  n={n}: {result.ngram_accuracy[n] * 100:.4f}% (baseline≈{baseline}%)")
     lines.append("")
     lines.append("SchurProbe (first 5000 symbols):")
-    if result.schur.first_violation_index is not None:
-        lines.append(f"  first violation at index {result.schur.first_violation_index}")
+    if result.schur.first_matching_relation_index is not None:
+        lines.append(
+            "  first matching relation at index "
+            f"{result.schur.first_matching_relation_index} (second pair index)"
+        )
     if result.mode == "digits":
         lines.append(
             f"  triples={result.schur.triples:,}  count={result.schur.count}  "

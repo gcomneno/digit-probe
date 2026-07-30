@@ -318,6 +318,15 @@ Output sintetico (ordinabile) con indicatori di severità e **AnomalyScore**.
 Su `R` simboli (cap a `--schur-N`), testiamo tutte le coppie `i<j` e chiediamo se la “somma mod M” riappare in posizione `k=(i+j) mod R`.
 Atteso “casuale”: **1 volta su M**. Misuriamo quanto te ne discosti con uno **z-score** binomiale standard.
 
+Una relazione *matching* soddisfa `(seq[i] + seq[j]) % M == seq[(i+j) % R] % M`.
+Quando presente, `first_matching_relation_index` è l'indice `j` (il secondo elemento
+della coppia) della prima corrispondenza nell'ordine di scansione: `i` crescente e,
+a parità di `i`, `j` crescente. Non indica una relazione fallita né una “violazione”.
+
+Nel core e nell'API Python il nome canonico è `first_matching_relation_index`.
+Il JSON non ha una versione di schema e mantiene quindi soltanto la chiave storica
+`first_violation_index`, con lo stesso valore, per compatibilità con i report esistenti.
+
 ---
 
 ## 🔗 Integrazione con Turbo-Bucketizer
