@@ -74,6 +74,11 @@ def _signed(value: float, precision: int) -> str:
     return f"{'+' if value >= 0 else ''}{value:.{precision}f}"
 
 
+def _percentage(value: float, precision: int = 4) -> str:
+    """Format an accuracy as a percentage, preserving unavailable values."""
+    return "n/a" if math.isnan(value) else f"{value * 100:.{precision}f}%"
+
+
 def render_human_report(result: AnalysisResult) -> str:
     """Render the established ordinary console report without printing it."""
     lines: list[str] = []
@@ -134,14 +139,25 @@ def render_human_report(result: AnalysisResult) -> str:
         else:
             lines.append("  --> compatibile con sequenze random-like su alfabeto 10.")
         lines.append("")
-        lines.append("N-gram predictor (80/20 split):")
-        baseline = f"{100.0 / result.alphabet:.0f}"
     else:
         lines.append(f"Compression ratio (zlib over 'ints text'): {result.compress_ratio:.4f}\n")
-        lines.append("N-gram predictor (80/20 split) over integer symbols:")
-        baseline = f"{100.0 / result.alphabet:.2f}"
-    for n in (1, 2, 3):
-        lines.append(f"  n={n}: {result.ngram_accuracy[n] * 100:.4f}% (baseline≈{baseline}%)")
+    lines.append("Valutazione N-gram e baseline (split 80/20)")
+    uniform_baseline = 1.0 / result.alphabet
+    majority_baseline = result.ngram_accuracy[1]
+    lines.append(f"  probabilità uniforme (1/alfabeto): {_percentage(uniform_baseline)}")
+    lines.append(
+        '  ngram["1"] — majority baseline empirica storica '
+        f"(maggioranza nel training, valutata sull'intero holdout): "
+        f"{_percentage(majority_baseline)}"
+    )
+    for n in (2, 3):
+        lines.append(
+            f"  n={n} (valutato su holdout[{n}:]): {_percentage(result.ngram_accuracy[n])}"
+        )
+    lines.append(
+        "  Il confronto con la majority baseline è interpretativo: solo un miglioramento "
+        "sostanziale e stabile può suggerire informazione nel contesto."
+    )
     lines.append("")
     lines.append("SchurProbe (first 5000 symbols):")
     if result.schur.first_matching_relation_index is not None:
