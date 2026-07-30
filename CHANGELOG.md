@@ -14,7 +14,7 @@ Questa è la prima versione stabile e completa del toolkit.
   - Runs test (parità) con Z-score
   - Gaps (conteggio e distanza media tra occorrenze)
   - Autocorrelazione lag 1..5
-  - Compression ratio (zlib) come proxy di entropia
+  - Compression ratio (zlib) come proxy di ripetizioni e struttura facilmente comprimibile
   - N-gram predictor (n=1..3) con split 80/20
   - **SchurProbe** (triple a+b=c mod M) con atteso e z-score
 - **Report strutturati**: JSON (per automazione) + riepilogo CLI leggibile
@@ -57,7 +57,7 @@ python3 compare_reports.py pi.json buckets.json --baseline pi.json --md compare.
 * **Chi-square**: più vicino ai dof (M−1) e con varianza attesa → copertura uniforme.
 * **Runs Z (parità)**: |Z| ≲ 2 ≈ casuale; molto alto → struttura nell’ordine.
 * **Autocorr (lag 1..5)**: |ρ| ≲ 0.05 su dataset ampi → assenza di dipendenza seriale.
-* **Compression ratio (zlib)**: più alto → meno ripetizioni; per cifre base-10 limite teorico ≈ 0.415.
+* **Compression ratio (zlib)**: più alto → meno struttura facilmente comprimibile rilevata da zlib; va interpretato con le metriche di distribuzione e dipendenza. Per cifre base-10 il limite teorico è ≈ 0.415.
 * **N-gram accuracy**: ≈ 1/M se stream imprevedibile.
 * **SchurProbe**: z vicino a 0 allinea al caso random-like.
 

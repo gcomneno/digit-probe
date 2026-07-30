@@ -552,10 +552,12 @@ Valori vicini a zero non garantiscono casualità:
 È un proxy pratico della ripetitività.
 
 - valori molto bassi suggeriscono pattern o ridondanza;
-- valori random-like indicano assenza di ripetizioni facilmente comprimibili;
+- valori più alti indicano soltanto che zlib non ha rilevato forte struttura
+  facilmente comprimibile nella rappresentazione analizzata;
 - sui dataset piccoli l'overhead del formato compresso pesa molto.
 
-Non è un test formale di casualità.
+Non è un test formale di casualità: va letto insieme alle metriche di
+distribuzione e dipendenza.
 
 ### N-gram predictor
 

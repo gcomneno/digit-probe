@@ -133,11 +133,16 @@ def render_human_report(result: AnalysisResult) -> str:
         lines.append(f"Compression ratio (zlib over text): {result.compress_ratio:.4f}")
         if result.compress_ratio <= 0.44:
             lines.append(
-                "  --> sotto ~0.44; può indicare ripetizioni o testo breve "
+                "  --> sotto ~0.44; può indicare ripetizioni o altra struttura "
+                "comprimibile. Sui campioni brevi l'overhead di zlib può incidere "
                 "(limite teorico ~0.415 per alfabeto 10)."
             )
         else:
-            lines.append("  --> compatibile con sequenze random-like su alfabeto 10.")
+            lines.append(
+                "  --> questa euristica zlib non ha rilevato forte struttura "
+                "comprimibile nella rappresentazione analizzata; non conclude "
+                "sulla casualità complessiva."
+            )
         lines.append("")
     else:
         lines.append(f"Compression ratio (zlib over 'ints text'): {result.compress_ratio:.4f}\n")
