@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
-PYTHON="${PYTHON:-python}"
+PYTHON="${PYTHON:-python3}"
 
 "$PYTHON" -m build --outdir "$TMP_DIR/dist" "$ROOT"
 "$PYTHON" -m twine check "$TMP_DIR/dist"/*

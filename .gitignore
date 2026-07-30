@@ -70,6 +70,7 @@ buckets_*.csv
 # - risultati di probe tipici (se non vuoi versionarli)
 #   (commenta queste righe se vuoi tracciare i JSON/MD finali)
 *.json
+!tests/fixtures/*.json
 compare.csv
 compare.md
 SELFTEST_SUMMARY.md

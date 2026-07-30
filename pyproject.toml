@@ -27,7 +27,7 @@ classifiers = [
 dependencies = []
 
 [project.scripts]
-digit-probe = "digit_probe:main"
+digit-probe = "digit_probe.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/gcomneno/digit-probe"
@@ -36,7 +36,10 @@ Issues = "https://github.com/gcomneno/digit-probe/issues"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-py-modules = ["digit_probe"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["digit_probe*"]
 
 [tool.ruff]
 src = ["src"]
