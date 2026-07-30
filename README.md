@@ -17,7 +17,8 @@ Pensato per diagnosticare **random-like vs struttura** in stream numerici e per 
 - **Gaps** per simbolo (conteggio e **gap medio**)
 - **Autocorrelazione** (lag `1..5`)
 - **Compression ratio (zlib)** come proxy di ripetizione/struttura
-- **N-gram predictor** (n=1..3, split 80/20)
+- **Valutazione N-gram** (n=1..3, split 80/20): probabilità uniforme, baseline
+  empirica della classe maggioritaria e accuratezza dipendente dal contesto
 - **SchurProbe** *(additività mod M)*
   - Coppie `i<j`, indice `k=(i+j) mod R`
   - Verifica `(seq[i]+seq[j]) % M == seq[k]`
@@ -137,6 +138,32 @@ renderizza l'output leggibile; `digit_probe.cli` è il solo confine per argparse
 
 La CLI `digit-probe`, le sue opzioni e il formato JSON corrente restano compatibili
 con `compare_reports.py`; il report non ha ancora un campo di versione/schema.
+In particolare, la chiave JSON storica `ngram["1"]` resta invariata: è l'accuracy
+sul holdout della previsione costante del simbolo più frequente nel training split.
+L'output umano la presenta quindi come **majority baseline empirica**, non come un
+predictor che usa contesto.
+
+### Interpretare la valutazione N-gram e baseline
+
+Il report umano mostra due riferimenti distinti:
+
+- **probabilità uniforme (`1 / alphabet`)**: accuracy attesa scegliendo uniformemente un
+  simbolo dell'alfabeto; è un riferimento teorico, appropriato solo a una sorgente
+  uniforme;
+- **majority baseline empirica storica**: il simbolo più frequente nel training split
+  viene sempre predetto e valutato sull'intero holdout. È il valore storico
+  `ngram["1"]`.
+
+`n=2` e `n=3` usano il contesto precedente e sono valutati rispettivamente su
+`holdout[2:]` e `holdout[3:]`: i primi simboli dell'holdout non hanno una previsione
+contestuale. Perciò il confronto con la majority baseline, valutata sull'intero
+holdout, è interpretativo e il report non presenta delta numerici non appaiati.
+Un'accuracy vicina alla frequenza del simbolo maggioritario può dipendere soltanto dal
+bias marginale: solo un miglioramento sostanziale e stabile può suggerire informazione
+nel contesto.
+Non è comunque una prova statistica: campioni corti, molti contesti rari, il singolo
+split temporale e confronti multipli possono produrre differenze instabili. Valuta il
+risultato insieme a dimensione campionaria e ad altre metriche.
 
 ---
 

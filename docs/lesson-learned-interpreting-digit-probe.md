@@ -189,7 +189,10 @@ sequenziale, ma perché può ottenere quasi lo stesso risultato predicendo
 sempre il simbolo più frequente.
 
 La baseline uniforme del predictor è il 10%, ma la baseline empirica più
-onesta è circa il 39,37%, cioè la frequenza del `7`.
+onesta è circa il 39,37%, cioè la frequenza del `7`. Digit-Probe la calcola dal
+training split, predice sempre quel simbolo sull'intero holdout e la conserva
+nel valore JSON storico `ngram["1"]`; il report umano la etichetta esplicitamente
+come majority baseline empirica storica, non come predictor contestuale.
 
 Il gap medio conferma il bias:
 
@@ -210,6 +213,15 @@ confrontare il predictor con almeno due baseline:
 
 - scelta uniforme tra tutti i simboli;
 - previsione costante del simbolo più frequente.
+
+`n=2` e `n=3` sono valutati rispettivamente su `holdout[2:]` e `holdout[3:]`, perché
+escludono i primi due e tre simboli dell'holdout, privi di contesto interno. Rispetto
+alla majority baseline storica, valutata sull'intero holdout, il confronto è quindi
+interpretativo e non richiede delta numerici non appaiati. Solo un miglioramento
+sostanziale e stabile può suggerire che il contesto sia informativo. Non è una prova:
+su holdout corti, con contesti rari o dopo molti confronti, una differenza può essere
+dovuta alla variabilità campionaria. Il report non stima intervalli di confidenza né
+corregge confronti multipli.
 
 ---
 
