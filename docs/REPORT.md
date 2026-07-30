@@ -121,7 +121,7 @@ Il limite teorico per una sorgente perfettamente casuale su alfabeto 10 è ~0,41
 
 ---
 
-### 3.6 N-gram predictor (n=1..3)
+### 3.6 Valutazione N-gram e baseline (n=1..3)
 
 Accuracy sul set di test (20% finale):
 
@@ -134,10 +134,15 @@ Accuracy sul set di test (20% finale):
   - n=2: ~10,10%
   - n=3: ~9,84%
 
-Baseline “pura” (indovinare a caso una cifra su 10) = **10%**.
+La probabilità uniforme teorica (indovinare a caso una cifra su 10) è **10%**.
+Il valore storico `ngram["1"]` è invece la majority baseline empirica: predice sempre
+il simbolo più frequente nel training split e lo valuta sull'intero holdout. `n=2` e
+`n=3` sono valutati rispettivamente su `holdout[2:]` e `holdout[3:]`, perché i primi
+simboli non hanno contesto interno all'holdout. Il confronto con la majority baseline
+è quindi interpretativo; non vengono riportati delta numerici non appaiati.
 
 > **Conclusione:** i modelli n-gram non riescono a sfruttare alcuna struttura ripetitiva stabile;
-> il vantaggio rispetto al “lancio di una moneta a 10 facce” è trascurabile.
+> non emerge un miglioramento sostanziale e stabile rispetto alla majority baseline empirica.
 > In pratica: **non imparano nulla di utile**.
 
 ---

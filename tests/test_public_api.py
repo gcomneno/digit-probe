@@ -6,9 +6,12 @@ import argparse
 import builtins
 import json
 import math
+import random
 import subprocess
 import sys
+from collections import Counter
 from collections.abc import Callable
+from dataclasses import asdict, fields
 from pathlib import Path
 
 import pytest
@@ -129,6 +132,32 @@ def test_analysis_result_equality_treats_nan_as_unavailable() -> None:
     assert isinstance(left, AnalysisResult)
 
 
+def test_analysis_result_public_structure_matches_origin_main() -> None:
+    """Keep the stable dataclass fields, ``asdict()``, repr, and equality contract."""
+    expected_fields = (
+        "mode",
+        "sample_size",
+        "alphabet",
+        "counts",
+        "chi_square",
+        "expected_per_bin",
+        "zscores",
+        "runs",
+        "gaps",
+        "autocorr",
+        "compress_ratio",
+        "ngram_accuracy",
+        "schur",
+        "max_observed",
+    )
+    result = analyze_digits([0, 1, 2, 3], AnalysisConfig(schur_capacity=3))
+
+    assert tuple(field.name for field in fields(AnalysisResult)) == expected_fields
+    assert tuple(asdict(result)) == expected_fields
+    assert repr(result).startswith("AnalysisResult(mode=")
+    assert not hasattr(result, "ngram_majority_accuracy")
+
+
 @pytest.mark.parametrize(
     ("result", "fixture"),
     [
@@ -158,6 +187,75 @@ def test_legacy_fixture_explicitly_preserves_json_nan_values() -> None:
     assert "NaN" in raw_fixture
     assert math.isnan(parsed_fixture["autocorr"]["4"])
     assert parsed_fixture["runs"]["p_two_tailed"] is not None
+
+
+def test_ngram_one_keeps_the_historical_training_majority_semantics() -> None:
+    rng = random.Random(20260730)
+    digits = rng.choices(range(10), weights=[1, 1, 1, 1, 1, 1, 1, 6, 1, 1], k=10_000)
+    result = analyze_digits(digits, AnalysisConfig(schur_capacity=3))
+
+    train_size = int(len(digits) * 0.8)
+    train = digits[:train_size]
+    test = digits[train_size:]
+    training_majority = Counter(train).most_common(1)[0][0]
+    expected = sum(symbol == training_majority for symbol in test) / len(test)
+
+    assert result.ngram_accuracy[1] == expected
+    assert set(report_mapping(result)["ngram"]) == {1, 2, 3}
+    report = render_human_report(result)
+    assert "Valutazione N-gram e baseline (split 80/20)" in report
+    assert "probabilità uniforme (1/alfabeto): 10.0000%" in report
+    assert (
+        'ngram["1"] — majority baseline empirica storica '
+        "(maggioranza nel training, valutata sull'intero holdout): "
+        f"{expected * 100:.4f}%" in report
+    )
+    assert "  n=1:" not in report
+    assert report.count('ngram["1"]') == 1
+    for n in (2, 3):
+        assert f"n={n} (valutato su holdout[{n}:]):" in report
+    assert "Δ=" not in report
+    assert (
+        "Il confronto con la majority baseline è interpretativo: solo un miglioramento "
+        "sostanziale e stabile può suggerire informazione nel contesto." in report
+    )
+
+
+def test_ngram_human_report_for_uniform_biased_and_periodic_sequences() -> None:
+    uniform_rng = random.Random(20260730)
+    uniform = [uniform_rng.randrange(10) for _ in range(10_000)]
+    biased_rng = random.Random(20260731)
+    biased = biased_rng.choices(range(10), weights=[1, 1, 1, 1, 1, 1, 1, 6, 1, 1], k=10_000)
+    periodic = list(range(10)) * 1000
+
+    config = AnalysisConfig(schur_capacity=3)
+    uniform_result = analyze_digits(uniform, config)
+    biased_result = analyze_digits(biased, config)
+    periodic_result = analyze_digits(periodic, config)
+    uniform_report = render_human_report(uniform_result)
+    biased_report = render_human_report(biased_result)
+    periodic_report = render_human_report(periodic_result)
+
+    assert all(math.isfinite(uniform_result.ngram_accuracy[n]) for n in (1, 2, 3))
+    assert "probabilità uniforme (1/alfabeto): 10.0000%" in uniform_report
+    assert 'ngram["1"] — majority baseline empirica storica' in uniform_report
+    assert biased_result.ngram_accuracy[1] > 0.3
+    assert 'ngram["1"] — majority baseline empirica storica' in biased_report
+    assert periodic_result.ngram_accuracy[1] == 0.1
+    assert periodic_result.ngram_accuracy[2] == periodic_result.ngram_accuracy[3] == 1.0
+    for n in (2, 3):
+        assert f"n={n} (valutato su holdout[{n}:]): 100.0000%" in periodic_report
+
+
+def test_ngram_human_report_preserves_short_split_unavailable_values() -> None:
+    result = analyze_digits([0, 1, 2, 3], AnalysisConfig(schur_capacity=3))
+    report = render_human_report(result)
+
+    assert result.ngram_accuracy[1] == 0.0
+    assert math.isnan(result.ngram_accuracy[2]) and math.isnan(result.ngram_accuracy[3])
+    assert 'ngram["1"] — majority baseline empirica storica' in report
+    assert "n=2 (valutato su holdout[2:]): n/a" in report
+    assert "n=3 (valutato su holdout[3:]): n/a" in report
 
 
 @pytest.mark.parametrize(
