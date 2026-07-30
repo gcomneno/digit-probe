@@ -39,12 +39,25 @@ class GapResult:
 
 @dataclass(frozen=True)
 class SchurResult:
+    """Result of the pair-based modular-additivity diagnostic.
+
+    ``first_matching_relation_index`` is the ``right`` (second-pair) index of
+    the first matching relation encountered while iterating pairs by increasing
+    ``left`` and then increasing ``right``.  It is ``None`` when no relation
+    matches.  It is not an index of a failed relation.
+    """
+
     triples: int
     count: int
     expected: float
     fraction: float
     z_score: float
-    first_violation_index: int | None
+    first_matching_relation_index: int | None
+
+    @property
+    def first_violation_index(self) -> int | None:
+        """Deprecated compatibility alias for ``first_matching_relation_index``."""
+        return self.first_matching_relation_index
 
 
 @dataclass(frozen=True, eq=False)
@@ -217,7 +230,11 @@ def ngram_predictor_accuracy(
 
 
 def schur_probe(seq: Sequence[int], alphabet: int, capacity: int) -> SchurResult:
-    """Run the existing pair-based SchurProbe calculation."""
+    """Run the pair-based modular-additivity diagnostic.
+
+    The reported first-match index is the second-pair (``right``) index of the
+    first matching relation in increasing ``left``, then ``right`` order.
+    """
     size = min(len(seq), capacity)
     if size < 3 or alphabet <= 0:
         return SchurResult(0, 0, 0.0, 0.0, float("nan"), None)

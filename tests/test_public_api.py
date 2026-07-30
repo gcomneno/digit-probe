@@ -23,7 +23,7 @@ from digit_probe import (  # noqa: E402
     analyze_integer_symbols,
 )
 from digit_probe.cli import parse_args  # noqa: E402
-from digit_probe.reporting import report_mapping  # noqa: E402
+from digit_probe.reporting import render_human_report, report_mapping  # noqa: E402
 
 
 def json_round_trip(mapping: dict[str, object]) -> dict[str, object]:
@@ -50,6 +50,35 @@ def test_public_api_analyzes_integer_symbols_modulo_alphabet() -> None:
     assert result.mode == "integers"
     assert result.counts == {0: 2, 1: 0, 2: 0, 3: 0, 4: 1}
     assert result.max_observed == 5
+
+
+def test_schur_first_match_is_the_second_index_and_uses_matching_terminology() -> None:
+    result = analyze_digits([0, 0, 0], AnalysisConfig(schur_capacity=3))
+
+    assert result.schur.count == result.schur.triples == 3
+    assert result.schur.fraction == 1.0
+    assert result.schur.first_matching_relation_index == 1
+    assert result.schur.first_violation_index == 1  # Deprecated API alias.
+
+    report = report_mapping(result)["schur"]
+    assert report["first_violation_index"] == 1
+    assert "first_matching_relation_index" not in report
+
+    human_report = render_human_report(result)
+    assert "first matching relation at index 1 (second pair index)" in human_report
+    assert "first violation" not in human_report
+
+
+def test_schur_reports_no_first_match_when_no_relations_match() -> None:
+    result = analyze_digits([1, 1, 1], AnalysisConfig(schur_capacity=3))
+
+    assert result.schur.count == 0
+    assert result.schur.first_matching_relation_index is None
+    assert result.schur.first_violation_index is None  # Deprecated API alias.
+    report = report_mapping(result)["schur"]
+    assert report["first_violation_index"] is None
+    assert "first_matching_relation_index" not in report
+    assert "first matching relation at index" not in render_human_report(result)
 
 
 @pytest.mark.parametrize(
