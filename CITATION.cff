@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use Digit Probe in academic or research work, please cite it as below."
+title: "Digit Probe"
+abstract: >
+  Digit Probe is research-oriented software for descriptive statistical and
+  structural analysis of ordered numeric and discrete-symbol sequences. It
+  provides a small Python API and CLI for reproducible measurements while
+  leaving domain interpretation to the consumer. Digit Probe does not by
+  itself establish anomaly, defect, threat, causality, malicious intent,
+  process correctness, or certified randomness or non-randomness.
+type: software
+authors:
+  - family-names: "Cicellyn Comneno"
+    given-names: "Giancarlo"
+    alias: "gcomneno"
+repository-code: "https://github.com/gcomneno/digit-probe"
+url: "https://github.com/gcomneno/digit-probe"
+license: MIT
+version: 1.0.0
+date-released: "2026-09-18"
+keywords:
+  - "discrete sequences"
+  - "numeric sequences"
+  - "statistical analysis"
+  - "structural analysis"
+  - "research software"
+  - "reproducibility"
