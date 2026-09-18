@@ -37,7 +37,10 @@ python src/digit_probe.py \
 ```
 
 * `--integers` abilita la modalità "un intero per riga".
-* `--alphabet 90` dichiara che i simboli appartengono a `0..89` (nel caso Lotto i valori sono `1..90`, l’effetto del mod è nullo).
+* `--alphabet 90` dichiara un alfabeto modulo 90. Con input grezzo `1..90`,
+  il valore `90` viene quindi rappresentato come `0` (`90 % 90 == 0`).
+  Per una rappresentazione categorica stretta dei novanta numeri è preferibile
+  normalizzare prima `valore - 1`, ottenendo simboli `0..89`.
 * `--report-json` salva un report strutturato, utile per confronti successivi.
 
 ---
