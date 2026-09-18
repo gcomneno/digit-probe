@@ -17,6 +17,22 @@ printf '0123456789012345678901234567890123456789\n' > "$TMP_DIR/work/digits.txt"
 
 cd "$TMP_DIR/work"
 "$TMP_DIR/venv/bin/digit-probe" --help
+"$TMP_DIR/venv/bin/python" -m digit_probe --help
+
+"$TMP_DIR/venv/bin/python" - <<'PYAPI'
+from digit_probe import AnalysisConfig, AnalysisResult, analyze_digits
+
+result = analyze_digits(
+    [0, 1, 2, 3],
+    AnalysisConfig(schur_capacity=3),
+)
+
+assert isinstance(result, AnalysisResult)
+assert result.mode == "digits"
+assert result.sample_size == 4
+assert result.alphabet == 10
+PYAPI
+
 "$TMP_DIR/venv/bin/digit-probe" \
   --file digits.txt \
   --schur-N 20 \

@@ -14,7 +14,7 @@ authors = [
     { name = "Giancarlo Cicellyn Comneno" },
 ]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",

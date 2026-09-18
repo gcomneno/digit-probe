@@ -1,136 +1,82 @@
-# digit-probe v1.0.0 — Initial stable release
-Analizzatore leggero di sequenze numeriche (cifre o interi) con report statistici, confronto tra dataset e supporto a casi d’uso “random-like vs struttura”.
+# Changelog
 
-Questa è la prima versione stabile e completa del toolkit.
+## 1.0.0 — First stable public package/API release
 
----
+`1.0.0` marks the first intentionally stable public Python package and CLI surface for Digit Probe.
 
-## ✨ Highlights
-- **Analisi end-to-end** di sequenze:
-  - cifre decimali (es. π, e)
-  - interi generici (es. bucket del Turbo-Bucketizer)
-- **Metriche chiave**:
-  - Chi-square (uniformità per M simboli)
-  - Runs test (parità) con Z-score
-  - Gaps (conteggio e distanza media tra occorrenze)
-  - Autocorrelazione lag 1..5
-  - Compression ratio (zlib) come proxy di ripetizioni e struttura facilmente comprimibile
-  - N-gram predictor (n=1..3) con split 80/20
-  - **SchurProbe** (triple a+b=c mod M) con atteso e z-score
-- **Report strutturati**: JSON (per automazione) + riepilogo CLI leggibile
-- **Comparatore**: ranking multi-metrica con export in **CSV** e **Markdown**
-- **Dataset ready-made**: generazione offline di 100k cifre per **π** ed **e** (fallback `mpmath`)
+Digit Probe remains **research technology**. This release does not classify the project as a productionized service or product.
 
----
+### Public package surface
 
-## 📦 Contenuto
-- `digit_probe.py` — analisi singolo dataset (stdout + `--report-json`)
-- `make_datasets.py` — genera `pi_100k.txt` / `e_100k.txt` (online/offline)
-- `compare_reports.py` — confronto tra più report `.json` (CSV/MD opzionali)
+The supported installed package provides:
 
----
+- `AnalysisConfig`;
+- `AnalysisResult`;
+- `analyze_digits()`;
+- `analyze_integer_symbols()`;
+- the `digit-probe` CLI;
+- the `python -m digit_probe` module entry point.
 
-## 🧪 Esempi rapidi
-```bash
-# 1) Genera 100k cifre (offline con mpmath)
-python3 make_datasets.py --n 100000 --only pi --offline
-python3 make_datasets.py --n 100000 --only e  --offline
+The installed wheel intentionally does not ship repository-only dataset generators, comparison utilities, fixtures, case studies, or development scripts.
 
-# 2) Analizza π ed e
-python3 digit_probe.py --file pi_100k.txt --report-json pi.json
-python3 digit_probe.py --file e_100k.txt  --report-json e.json
+### Analysis capabilities
 
-# 3) Confronta i report ed esporta CSV/Markdown
-python3 compare_reports.py pi.json e.json --baseline pi.json --csv compare.csv --md compare.md
-````
+The package provides descriptive measurements for ordered numeric sequences, including:
 
-Modalità per **interi** (es. bucket Turbo-B, M=256):
+- per-symbol counts;
+- chi-square and z-scores;
+- parity runs;
+- gaps;
+- autocorrelation;
+- zlib compression ratio;
+- majority/contextual N-gram accuracy;
+- SchurProbe modular-additive diagnostics.
 
-```bash
-python3 digit_probe.py --file buckets.txt --integers --alphabet 256 --report-json buckets.json
-python3 compare_reports.py pi.json buckets.json --baseline pi.json --md compare.md
-```
+### Consumer boundary
 
----
+The release documents an explicit consumer-safe contract.
 
-## 🧠 Interpretazione rapida delle metriche
-* **Chi-square**: più vicino ai dof (M−1) e con varianza attesa → copertura uniforme.
-* **Runs Z (parità)**: |Z| ≲ 2 ≈ casuale; molto alto → struttura nell’ordine.
-* **Autocorr (lag 1..5)**: |ρ| ≲ 0.05 su dataset ampi → assenza di dipendenza seriale.
-* **Compression ratio (zlib)**: più alto → meno struttura facilmente comprimibile rilevata da zlib; va interpretato con le metriche di distribuzione e dipendenza. Per cifre base-10 il limite teorico è ≈ 0.415.
-* **N-gram accuracy**: ≈ 1/M se stream imprevedibile.
-* **SchurProbe**: z vicino a 0 allinea al caso random-like.
+Domain consumers own:
 
----
+- vocabulary and semantic mapping;
+- observation order;
+- strict domain validation;
+- baseline selection;
+- downstream interpretation.
 
-## 🧰 Requisiti
-* **Python** 3.12+ (raccomandato **3.13**)
-* **Pacchetti**: `mpmath` (solo per `make_datasets.py` offline)
+For strict categorical vocabularies represented with alphabet size `M`, callers should validate and map symbols into `0..M-1` before invoking `analyze_integer_symbols()`.
 
-Setup tipico:
-```bash
-python3.13 -m venv .venv && source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install mpmath
-```
+### Compatibility boundaries
 
----
+The Python library API is the supported consumer surface.
 
-## 📑 Formati di output
+The historical JSON report remains available for compatibility with repository tooling, but it is not a versioned external evidence schema.
 
-### Report JSON (estratto campi principali)
-```jsonc
-{
-  "file": "pi_100k.txt",
-  "N": 100000,
-  "alphabet": 10,
-  "chi_square": 4.0930,
-  "runs": {"Z": 0.5646, "p_two_tailed": 0.5724},
-  "autocorr": {"lag1": -0.0025, "lag2": 0.0022, "lag3": -0.0027, "lag4": 0.0001, "lag5": 0.0027},
-  "compress_ratio": 0.4817,
-  "ngram": {"n1": 0.1013, "n2": 0.1026, "n3": 0.0998},
-  "schur": {"tested": 5000, "count": 124749, "expected": 125777.42, "z": -2.91, "fraction": 0.0100},
-  "source_sha256": "…",
-  "notes": "integer_part=true|false, generator=mpmath|http, …"
-}
-```
+Repository comparison utilities may contain heuristic scores or labels; those are not part of the core consumer-safe analysis contract.
 
-Il comparatore produce:
-* **stdout** con ranking, severità (`green/yellow/red`) e **AnomalyScore**
-* **`--csv`** tabellare
-* **`--md`** riassunto Markdown (pronto da committare)
+### Interpretation limits
 
----
+Digit Probe measurements alone do not establish:
 
-## ✅ Stato qualità (autoregolato)
+- anomaly;
+- defect;
+- incident;
+- threat;
+- intrusion;
+- causality;
+- malicious intent;
+- process correctness;
+- certified randomness or non-randomness.
 
-* Validato su:
-  * **π** e **e** (100k cifre, offline)
-  * Sequenze di **bucket** (M variabili, N ampi)
-* Nessun crash noto su input > 100k campioni
-* Output **riproducibili** (stesse opzioni ⇒ stessi risultati)
+### Packaging
 
----
+- Python requirement: `>=3.11`.
+- Runtime package dependencies: none outside the Python standard library.
+- Wheel and sdist are validated with `twine check`.
+- The package smoke test installs the built wheel into an isolated virtual environment before exercising the installed CLI and public API.
 
-## 🔄 Compatibilità / Breaking changes
-* Nessuna incompatibilità rispetto ai prototipi precedenti: le opzioni esistenti sono stabili.
-* I report JSON sono **backwards-compatible** con la pipeline `compare_reports.py`.
+### Historical note
 
----
+The previous public GitHub prototype release was `v0.1.0`.
 
-## ⚠️ Note e limiti noti
-- **Affidabilità χ² locale**: per finestre piccole con λ=N/M < 5 l’interpretazione del χ² va presa con cautela.
-- **Ordine vs frequenze**: alcuni test (runs/autocorr/ngram) misurano **struttura dell’ordine**, non solo bias marginale.
-- Le metriche non sono un certificato di “randomness crittografica”!
-
----
-
-## 🙏 Credits
-
-Grazie a **Giancarlo** per l’idea, i dataset e i test incrociati (π, e, Turbo-B).
-Il progetto nasce per indagare *struttura vs casualità* in sequenze reali e sintetiche.
-
----
-
-## 🔖 Tag corrente
-`v1.0.0 — Initial stable release`
+The jump to `1.0.0` identifies the first deliberately stabilized public package/API boundary after the repository's prototype and research-hardening work. It does not indicate Production/Stable product maturity.
