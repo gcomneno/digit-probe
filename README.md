@@ -136,6 +136,10 @@ non leggono o scrivono file, non interpretano argomenti e non terminano il proce
 `digit_probe.reporting` converte invece il risultato nel report JSON esistente e
 renderizza l'output leggibile; `digit_probe.cli` è il solo confine per argparse e I/O.
 
+Per il contratto consumer, incluse responsabilità dell'encoding, metriche sensibili
+alla rappresentazione, riproducibilità e limiti interpretativi, vedi
+[`docs/consumer-contract.md`](docs/consumer-contract.md).
+
 La CLI `digit-probe`, le sue opzioni e il formato JSON corrente restano compatibili
 con `compare_reports.py`; il report non ha ancora un campo di versione/schema.
 In particolare, la chiave JSON storica `ngram["1"]` resta invariata: è l'accuracy
@@ -226,7 +230,10 @@ Esempi:
   digit-probe --file lotto_2025_numbers.txt --integers --alphabet 90 --report-json lotto_2025_integers.json
   ```
 
-  (internamente verranno usati mod 90, ma se i valori sono già in `1..90` l’effetto è nullo).
+  I valori vengono analizzati modulo 90: quindi `90` diventa `0`.
+  Se il dominio logico è `1..90`, per una rappresentazione categorica stretta è
+  preferibile normalizzare esplicitamente `valore - 1` ottenendo `0..89` prima
+  dell'analisi.
 
 ### 4. Confrontare più dataset
 
