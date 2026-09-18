@@ -18,6 +18,7 @@ url: "https://github.com/gcomneno/digit-probe"
 license: MIT
 version: 1.0.0
 date-released: "2026-09-18"
+doi: "10.5281/zenodo.22836891"
 keywords:
   - "discrete sequences"
   - "numeric sequences"
