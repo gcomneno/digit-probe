@@ -1,5 +1,7 @@
 # Digit Probe
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22836890.svg)](https://doi.org/10.5281/zenodo.22836890)
+
 Digit Probe is a **research-oriented statistical and structural analyzer for ordered numeric sequences**.
 
 It provides a small Python API and CLI for measuring properties of:
