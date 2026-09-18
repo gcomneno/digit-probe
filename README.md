@@ -1,36 +1,33 @@
-# Digit-Probe
-Analizzatore **statistico/strutturale** per sequenze numeriche.
+# Digit Probe
 
-Supporta:
-- **cifre** (`digits`): file di sole cifre `0..9` (eventuali spazi/newline vengono ignorati)
-- **interi** (`integers`): un intero per riga con **alfabeto dichiarato** (`--alphabet M`)
+Digit Probe is a **research-oriented statistical and structural analyzer for ordered numeric sequences**.
 
-Pensato per diagnosticare **random-like vs struttura** in stream numerici e per ispezionare **bucket** prodotti da strumenti esterni:
-(es. [Turbo-Bucketizer](https://github.com/gcomneno/turbo-bucketizer))
+It provides a small Python API and CLI for measuring properties of:
 
----
+- decimal digit streams (`0..9`);
+- integer-symbol streams with an explicit alphabet.
 
-## ✨ Cosa misura
+Digit Probe produces **descriptive measurements**. It does not by itself establish anomaly, defect, threat, causality, malicious intent, process correctness, or certified randomness/non-randomness.
 
-- **Distribuzione** per simbolo, **chi-square**, **z-score**
-- **Runs test** (pari/dispari)
-- **Gaps** per simbolo (conteggio e **gap medio**)
-- **Autocorrelazione** (lag `1..5`)
-- **Compression ratio (zlib)** come proxy di ripetizione/struttura
-- **Valutazione N-gram** (n=1..3, split 80/20): probabilità uniforme, baseline
-  empirica della classe maggioritaria e accuratezza dipendente dal contesto
-- **SchurProbe** *(additività mod M)*
-  - Coppie `i<j`, indice `k=(i+j) mod R`
-  - Verifica `(seq[i]+seq[j]) % M == seq[k]`
-  - `N_triples = C(R,2)`, atteso `E = N_triples/M`, varianza `N p (1-p)`, `z-score` standard
+> Development status: **Beta**.
+> Version `1.0.0` marks the first intentionally stable public package/API surface; it does not mean that Digit Probe is a productionized service or product.
 
-Output: **stampa leggibile** + **JSON** opzionale con `--report-json` (compatibile con `compare_reports.py`).
+Italian presentation copy:
+https://github.com/gcomneno/digit-probe/blob/main/README.it.md
 
 ---
 
-## 🚀 Installazione
+## Installation
 
-Richiede **Python 3.11+** (ok anche 3.13).
+Digit Probe requires Python 3.11 or newer.
+
+For the user-facing package release:
+
+```bash
+python -m pip install digit-probe
+```
+
+From a repository checkout:
 
 ```bash
 python3 -m venv .venv
@@ -38,396 +35,253 @@ source .venv/bin/activate
 python -m pip install .
 ```
 
-La CLI installata usa solo la libreria standard. `requirements.txt` include invece
-dipendenze opzionali usate dagli strumenti di generazione dataset nel repository.
-
-> Suggerito: tenere i dataset/risultati fuori dal versionamento (`.gitignore` già predisposto).
+The installed `digit-probe` package has no runtime dependencies outside the Python standard library.
 
 ---
 
-## 🧩 Struttura repo (essenziale)
+## Quick start
+
+### Decimal digits
+
+Given a text file containing digits:
 
 ```bash
-src/
-  digit_probe/            # importable analyzer package
-    core.py                # pure metrics and structured analysis results
-    reporting.py           # existing JSON mapping and human rendering
-    cli.py                 # argparse, file I/O, output, and command exits
-  digit_probe.py          # direct-invocation compatibility shim
-  compare_reports.py      # confronto tra più JSON
-  make_datasets.py        # generatori semplici (pi, e, gradienti, ecc.)
-  generative/
-    gen_rng_digits_zoo.py # RNG Zoo per test di regressione
-    gen_rng_1_90.py       # (opzionale) generatori su 1..90
-
-tests/
-  basic.sh                # smoke test rapido
-  advanced.sh             # test avanzati (gradienti, bucket, schur-stress)
-  test_rng_digits_ci.py   # test di regressione RNG Zoo
-
-datasets/
-  pi_100k.txt             # esempi offline
-  e_100k.txt
-  ...
-Makefile
+digit-probe --file digits.txt --report-json report.json
 ```
 
----
+In digit mode, the CLI extracts characters `0..9` from the input and ignores other characters.
 
-## ⌨️ Uso rapido
+### Integer symbols
 
-### Modalità **digits** (cifre senza spazi “logici”)
+For one integer per line:
 
 ```bash
-digit-probe --file pi_100k.txt --report-json pi.json
+digit-probe \
+  --file buckets.txt \
+  --integers \
+  --alphabet 4096 \
+  --report-json report.json
 ```
 
-- L’input è trattato come **stream di cifre**: i caratteri `0..9` vengono letti, tutto il resto viene ignorato (spazi, newline, virgole…).
-- File tipico: una lunga stringa di cifre, opzionalmente con newline finali.
-
-### Modalità **integers** (un intero per riga, serve `--alphabet`)
-
-```bash
-# Esempio: bucket in [0..4095]
-digit-probe --file buckets_k12.txt --integers --alphabet 4096 --report-json buckets.json
-```
-
-L'invocazione diretta `python3 src/digit_probe.py ...` resta disponibile da un checkout
-del repository.
-
-- Ogni riga deve contenere un singolo intero (con eventuali spazi iniziali/finali).
-- I valori sono usati **mod M** (`M = --alphabet`), quindi un valore 5000 con `--alphabet 4096` diventa 5000 % 4096.
-
-### Opzioni principali
+Integer mode applies modulo normalization:
 
 ```text
---file PATH             input (digits o integers)
---n N                   limita la lunghezza analizzata
---integers              abilita modalità "integers"
---alphabet M            alfabeto per integers (obbligatorio con --integers)
---report-json OUT.json  salva un report JSON
---schur-N R             R massimo per SchurProbe (default: 5000)
+symbol -> symbol % alphabet
 ```
 
-## 🐍 API Python
+For strict categorical vocabularies, the caller should validate and map values into `0..M-1` before analysis.
 
-L'API pubblica è piccola e lavora esclusivamente su sequenze già in memoria:
+### CLI help
+
+```bash
+digit-probe --help
+```
+
+The module entry point is also available:
+
+```bash
+python -m digit_probe --help
+```
+
+---
+
+## Python API
+
+The supported public imports are:
+
+```python
+from digit_probe import (
+    AnalysisConfig,
+    AnalysisResult,
+    analyze_digits,
+    analyze_integer_symbols,
+)
+```
+
+Example:
 
 ```python
 from digit_probe import AnalysisConfig, analyze_digits
 
-result = analyze_digits([3, 1, 4, 1, 5, 9], AnalysisConfig(schur_capacity=100))
+result = analyze_digits(
+    [3, 1, 4, 1, 5, 9],
+    AnalysisConfig(schur_capacity=100),
+)
+
 print(result.chi_square)
 ```
 
-Per simboli interi, dichiara esplicitamente l'alfabeto. Come nella CLI storica,
-i valori vengono analizzati modulo l'alfabeto:
+Integer-symbol example:
 
 ```python
 from digit_probe import AnalysisConfig, analyze_integer_symbols
 
-result = analyze_integer_symbols([17, 210, 3, 4095], alphabet=4096,
-                                 config=AnalysisConfig(schur_capacity=500))
+result = analyze_integer_symbols(
+    [17, 210, 3, 4095],
+    alphabet=4096,
+    config=AnalysisConfig(schur_capacity=500),
+)
+
+print(result.autocorr)
 ```
 
-Gli unici import pubblici sono `AnalysisConfig`, `AnalysisResult`,
-`analyze_digits` e `analyze_integer_symbols`. Le funzioni di analisi non stampano,
-non leggono o scrivono file, non interpretano argomenti e non terminano il processo.
-`digit_probe.reporting` converte invece il risultato nel report JSON esistente e
-renderizza l'output leggibile; `digit_probe.cli` è il solo confine per argparse e I/O.
-
-Per il contratto consumer, incluse responsabilità dell'encoding, metriche sensibili
-alla rappresentazione, riproducibilità e limiti interpretativi, vedi
-[`docs/consumer-contract.md`](docs/consumer-contract.md).
-
-La CLI `digit-probe`, le sue opzioni e il formato JSON corrente restano compatibili
-con `compare_reports.py`; il report non ha ancora un campo di versione/schema.
-In particolare, la chiave JSON storica `ngram["1"]` resta invariata: è l'accuracy
-sul holdout della previsione costante del simbolo più frequente nel training split.
-L'output umano la presenta quindi come **majority baseline empirica**, non come un
-predictor che usa contesto.
-
-### Interpretare la valutazione N-gram e baseline
-
-Il report umano mostra due riferimenti distinti:
-
-- **probabilità uniforme (`1 / alphabet`)**: accuracy attesa scegliendo uniformemente un
-  simbolo dell'alfabeto; è un riferimento teorico, appropriato solo a una sorgente
-  uniforme;
-- **majority baseline empirica storica**: il simbolo più frequente nel training split
-  viene sempre predetto e valutato sull'intero holdout. È il valore storico
-  `ngram["1"]`.
-
-`n=2` e `n=3` usano il contesto precedente e sono valutati rispettivamente su
-`holdout[2:]` e `holdout[3:]`: i primi simboli dell'holdout non hanno una previsione
-contestuale. Perciò il confronto con la majority baseline, valutata sull'intero
-holdout, è interpretativo e il report non presenta delta numerici non appaiati.
-Un'accuracy vicina alla frequenza del simbolo maggioritario può dipendere soltanto dal
-bias marginale: solo un miglioramento sostanziale e stabile può suggerire informazione
-nel contesto.
-Non è comunque una prova statistica: campioni corti, molti contesti rari, il singolo
-split temporale e confronti multipli possono produrre differenze instabili. Valuta il
-risultato insieme a dimensione campionaria e ad altre metriche.
+The core analysis API works on in-memory sequences and does not perform file I/O, print output, parse command-line arguments, or terminate the process.
 
 ---
 
-## 🧷 Guida rapida – come preparare un tuo dataset
+## Measurements
 
-### 1. Decidi il tipo di sequenza
+Digit Probe currently reports these metric families:
 
-- **Cifre (`digits`)**:
-  - sequenze come cifre di π, e, costanti, output di funzioni hash, stream di cifre da log, cifre di estrazioni del Lotto, ecc.
-- **Interi (`integers`)**:
-  - bucket ID (`0..M-1`),
-  - valori discreti (stati di un automa, classi, label),
-  - output di PRNG personalizzati, ecc.
+- per-symbol counts;
+- chi-square and per-symbol z-scores;
+- parity runs;
+- per-symbol gaps;
+- autocorrelation;
+- zlib compression ratio;
+- majority and contextual N-gram prediction accuracy;
+- SchurProbe modular-additive diagnostics.
 
-### 2. Preparazione file per modalità `digits`
+These measurements do not all have the same semantic relationship with a numeric encoding.
 
-Formato consigliato: file di testo con **solo cifre** (più eventuali newline).
+For nominal categories:
 
-Esempi:
+- counts, chi-square, z-scores, gaps, and N-gram equality/context structure are preserved under appropriate bijective relabeling, up to relabeling of symbol-specific results;
+- parity runs, numeric autocorrelation, textual compression, and SchurProbe depend on the concrete numeric representation.
 
-- hai un CSV con cifre miste ad altro, puoi “spremere” solo i numeri:
+The encoding, baseline, and metric must therefore be interpreted together.
 
-  ```bash
-  # Estrai solo cifre e scrivi in mydigits.txt
-  tr -cd '0-9' < raw_input.txt > mydigits.txt
-  ```
+---
 
-- ora puoi analizzare:
+## Consumer contract
 
-  ```bash
-  digit-probe --file mydigits.txt --report-json mydigits.json
-  ```
+The authoritative consumer boundary is documented at:
 
-### 3. Preparazione file per modalità `integers`
+https://github.com/gcomneno/digit-probe/blob/main/docs/consumer-contract.md
 
-Formato: **un intero per riga**.
+The current supported consumer level is the **Python library consumer**.
 
-Esempi:
+A domain application remains responsible for:
 
-- hai bucket ID `0..4095`:
+- defining its vocabulary;
+- mapping domain observations to numeric symbols;
+- preserving observation order;
+- validating domain-specific values;
+- choosing an appropriate baseline;
+- interpreting measurements in domain terms.
 
-  ```text
-  17
-  210
-  3
-  4095
-  0
-  ...
-  ```
+For a strict categorical vocabulary represented with alphabet size `M`, the recommended boundary is:
 
-  analisi:
+```text
+domain observations
+    -> deterministic consumer mapping
+    -> strict consumer validation
+    -> symbols in 0..M-1
+    -> analyze_integer_symbols(...)
+    -> AnalysisResult
+    -> consumer-owned interpretation
+```
 
-  ```bash
-  digit-probe --file my_buckets.txt --integers --alphabet 4096 --report-json my_buckets.json
-  ```
+---
 
-- hai numeri `1..90` (es. estrazioni del Lotto) uno per riga:
+## Empty and short inputs
 
-  ```bash
-  digit-probe --file lotto_2025_numbers.txt --integers --alphabet 90 --report-json lotto_2025_integers.json
-  ```
+The core API accepts empty and short sequences.
 
-  I valori vengono analizzati modulo 90: quindi `90` diventa `0`.
-  Se il dominio logico è `1..90`, per una rappresentazione categorica stretta è
-  preferibile normalizzare esplicitamente `valore - 1` ottenendo `0..89` prima
-  dell'analisi.
+Some measurements may then be unavailable or non-computable and may be represented by sentinel numeric values such as `NaN` or infinity.
 
-### 4. Confrontare più dataset
+These states are not evidence of normality, randomness, correctness, or absence of structure.
 
-Una volta che hai i tuoi JSON (`--report-json`), puoi confrontarli:
+Applications may impose stricter minimum-length requirements before invoking Digit Probe.
+
+---
+
+## Reproducibility
+
+A reproducible core analysis should identify at least:
+
+- the exact ordered input sequence;
+- analysis mode;
+- declared alphabet for integer mode;
+- any caller-side mapping or normalization;
+- the effective `AnalysisConfig`;
+- Digit Probe package/source version identity.
+
+For exact reproduction of representation-dependent details, runtime implementation details may also matter. Compression in particular depends on the concrete serialized byte representation and compression implementation.
+
+---
+
+## JSON reporting
+
+The CLI can emit the historical JSON report format:
 
 ```bash
-python3 src/compare_reports.py   out/mio_dataset.json   out/rng_uniform.json   --baseline out/rng_uniform.json   --md out/compare_mio_vs_rng.md
+digit-probe --file digits.txt --report-json report.json
 ```
 
-Questo produce un Markdown con:
+This JSON format is maintained for compatibility with repository tooling, but it is **not a versioned external evidence schema**.
 
-- differenze sulle metriche chiave (chi-square, autocorr, compressione, Schur…),
-- un **AnomalyScore** sintetico per capire chi è più “strano” rispetto alla baseline.
-
----
-
-## 🧪 RNG Zoo & test di regressione (CI)
-
-Il progetto contiene una piccola **RNG Zoo a cifre** per verificare che gli strumenti diagnostici non si rompano nel tempo:
-
-Dataset generati da `src/generative/gen_rng_digits_zoo.py`:
-
-- `digits_rng_uniform.txt` → cifre 0..9 da RNG uniforme “sano”
-- `digits_rng_biased7.txt` → distribuzione **truccata** con 7 iper-favorito (~40%)
-- `digits_rng_lcg_mod10.txt` → LCG modulo 10 **marcio e periodico** (solo 4 cifre usate)
-
-La CI (GitHub Actions) lancia `pytest` e verifica che:
-
-- l’RNG **uniforme** risulti:
-  - chi-square piccolo,
-  - z-score per cifra vicino a 0,
-  - assenza di forte struttura facilmente comprimibile rilevata da zlib,
-  - SchurProbe con `z` vicino a 0;
-- il dataset **biased7** risulti **fortemente non uniforme**:
-  - il 7 è iper-frequente,
-  - chi-square e SchurProbe con z enormi,
-  - gaps e compressione rivelano il trucco;
-- il dataset **LCG mod10** venga visto come completamente **non-random**:
-  - solo poche cifre usate,
-  - chi-square mostruoso,
-  - autocorrelazioni forti,
-  - compressione quasi totale.
-
-Se cambiano algoritmi/parametri interni e questi test iniziano a fallire, è un campanello d’allarme: qualcosa nel motore di analisi si è degradato.
+Consumers should not infer stronger stability or scientific meaning from the JSON representation than from the documented Python analysis contract.
 
 ---
 
-## 📦 Dataset “famosi” (offline)
+## Installed package vs repository tools
 
-Genera 100k cifre di π o e **senza rete**:
+The installed wheel intentionally contains only the supported `digit_probe` package, its CLI entry point, metadata, and license.
 
-```bash
-python3 src/make_datasets.py --n 100000 --only pi --offline
-python3 src/make_datasets.py --n 100000 --only e  --offline
-```
+The repository also contains research/development utilities such as:
 
-Poi analizza:
+- dataset generators;
+- report comparison tooling;
+- regression fixtures;
+- shell test suites;
+- case studies and interpretation notes.
 
-```bash
-digit-probe --file pi_100k.txt --report-json pi.json
-digit-probe --file e_100k.txt  --report-json e.json
-```
+Those checkout-only tools are useful for research and project development but are not part of the installed-package compatibility surface.
 
----
+Repository documentation:
 
-## 🧪 Suite di test
-
-Comandi:
-
-```bash
-make test-basic     # random, pi (offline), sequenza costante
-make test-advanced  # gradiente, bucket (sintetico o Turbo), schur-stress
-make selftest       # aggrega i JSON in out/SELFTEST_SUMMARY.md
-```
-
-Se hai Turbo-Bucketizer e vuoi usarlo davvero nei test avanzati:
-
-```bash
-TURBO_BIN=/percorso/turbo-bucketizer make test-advanced
-```
-
-Risultati in `out/` (JSON + Markdown di confronto).
+- Consumer contract:
+  https://github.com/gcomneno/digit-probe/blob/main/docs/consumer-contract.md
+- Lotto case study:
+  https://github.com/gcomneno/digit-probe/blob/main/docs/case-study-lotto-2025.md
+- Interpretation lesson:
+  https://github.com/gcomneno/digit-probe/blob/main/docs/lesson-learned-interpreting-digit-probe.md
 
 ---
 
-## 🔍 Confronto report (più file)
+## Known boundaries
 
-Confronta due o più JSON:
+Digit Probe does not provide:
 
-```bash
-python3 src/compare_reports.py out/pi.json out/e.json --baseline out/pi.json --md out/compare_pi_e.md
-```
+- anomaly verdicts;
+- security incident or intrusion detection;
+- defect or correctness verdicts;
+- causal inference;
+- malicious-intent inference;
+- cryptographic randomness certification;
+- a versioned evidence schema;
+- a hosted service or dashboard.
 
-Output sintetico (ordinabile) con indicatori di severità e **AnomalyScore**.
-
----
-
-## 📘 Esempi interpretativi (due dritte)
-
-- **Compressione zlib**
-  - misura solo ripetizioni o altra struttura facilmente comprimibile nella
-    rappresentazione analizzata;
-  - valori **molto bassi** (≪0.44) possono indicare ripetizioni/strutture;
-    sui campioni brevi l'overhead di zlib incide sul rapporto;
-  - un valore più alto indica soltanto che zlib non ha rilevato forte struttura
-    comprimibile: non dimostra uniformità, indipendenza, imprevedibilità o
-    casualità complessiva.
-  - interpretare sempre il risultato insieme a distribuzione (chi-square e
-    z-score) e dipendenza (runs, autocorrelazione e predictor).
-
-- **Autocorrelazione**
-  - random-like ⇒ `|ρ|` piccoli (≲0.02 con N grandi)
-  - picchi stabili ⇒ dipendenze
-
-- **SchurProbe (z)**
-  - `z ≈ 0` ⇒ in linea con casualità mod M
-  - `|z|` alto ⇒ struttura additiva (pattern, periodi, generazioni affini)
+The repository's historical comparison utilities may expose heuristic labels or scores. Those are not part of the consumer-safe core analysis contract.
 
 ---
 
-## 🧠 SchurProbe in due righe
+## Development and verification
 
-Su `R` simboli (cap a `--schur-N`), testiamo tutte le coppie `i<j` e chiediamo se la “somma mod M” riappare in posizione `k=(i+j) mod R`.
-Atteso “casuale”: **1 volta su M**. Misuriamo quanto te ne discosti con uno **z-score** binomiale standard.
+The repository CI verifies:
 
-Una relazione *matching* soddisfa `(seq[i] + seq[j]) % M == seq[(i+j) % R] % M`.
-Quando presente, `first_matching_relation_index` è l'indice `j` (il secondo elemento
-della coppia) della prima corrispondenza nell'ordine di scansione: `i` crescente e,
-a parità di `i`, `j` crescente. Non indica una relazione fallita né una “violazione”.
+- Ruff;
+- pytest;
+- pre-commit;
+- package build/install smoke;
+- blocking dependency audit for the supported dependency set;
+- secret scanning.
 
-Nel core e nell'API Python il nome canonico è `first_matching_relation_index`.
-Il JSON non ha una versione di schema e mantiene quindi soltanto la chiave storica
-`first_violation_index`, con lo stesso valore, per compatibilità con i report esistenti.
-
----
-
-## 🔗 Integrazione con Turbo-Bucketizer
-
-- Esporta bucket come **interi** (`0..(2^k-1)`) in `txt/csv`
-- Analizza con `--integers --alphabet 2^k`
-- Confronta con baseline random, gradienti e sequenze sintetiche (`tests/advanced.sh` lo fa per te)
+A release candidate is additionally built as wheel and sdist and checked with `twine check`.
 
 ---
 
-## 🧾 JSON di output (schema minimo)
+## License
 
-```json
-{
-  "mode": "digits|integers",
-  "N": 100000,
-  "alphabet": 10,
-  "chi_square": 4.093,
-  "expected_per_bin": 10000.0,
-  "counts": {"0":9999, "1":10137, ...},
-  "runs": {"Z": 0.565, "p_two_tailed": 0.5724},
-  "autocorr": {"1": -0.0025, "2": 0.0022, ...},
-  "compress_ratio": 0.4817,
-  "ngram": {"1": 0.1013, "2": 0.1026, "3": 0.0998},
-  "schur": {
-    "triples": 12497500,
-    "count": 124749,
-    "expected": 125777.4,
-    "fraction": 0.00998,
-    "z": -2.91,
-    "first_violation_index": 59
-  }
-}
-```
-
----
-
-## 🛠️ Note pratiche
-
-- In **integers mode** i valori sono usati **mod M** (M=`--alphabet`).
-- `--n` può accelerare prove rapide (es. `--n 20000`).
-- `--schur-N` (default 5000) limita il costo di SchurProbe (crescita ~quadratica).
-
----
-
-## Documentazione interpretativa
-
-- [Lotto 2025 – caratterizzazione con Digit-Probe](docs/case-study-lotto-2025.md)
-  Esempio reale di utilizzo in modalità `integers` (`1..90`), confrontato con una baseline RNG uniforme.
-
-- [Lesson learned – Interpretare Digit-Probe senza farsi ingannare dalla baseline](docs/lesson-learned-interpreting-digit-probe.md)
-  Esercitazione cumulativa su frequenze, ordine, predicibilità, gap, p-value, rappresentazione dei dati e falsi allarmi statistici.
-
----
-
-## 📄 Licenza
-
-MIT. Vedi `LICENSE`.
-
----
-
-## 💡 Motto
-> “Se è **random-like**, non lo è per sempre. Se è **strutturato**, lo becchiamo.”
+MIT. See https://github.com/gcomneno/digit-probe/blob/main/LICENSE
